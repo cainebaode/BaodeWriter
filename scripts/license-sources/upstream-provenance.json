@@ -1,0 +1,42 @@
+[
+  {
+    "file": "tiptap-2.27.3-LICENSE.md",
+    "url": "https://raw.githubusercontent.com/ueberdosis/tiptap/0ed4a30a6cda23799a01881f67d01ad218a2ac6d/LICENSE.md",
+    "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+  },
+  {
+    "file": "mantine-7.17.8-LICENSE",
+    "url": "https://raw.githubusercontent.com/mantinedev/mantine/7.17.8/LICENSE",
+    "sha256": "61c765e625bc25d55143f14de7554685c52f21d9e671d3d204304691a163d06a"
+  },
+  {
+    "file": "remix-icons-LICENSE",
+    "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/c1c01303b97f81bce88374220e08c3d80c9f241a/License",
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  {
+    "file": "material-icons-LICENSE",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/ef43291c4d6ebbada3f46e1f584c39bc8f6861b2/LICENSE",
+    "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+  },
+  {
+    "file": "ant-design-icons-LICENSE",
+    "url": "https://raw.githubusercontent.com/ant-design/ant-design-icons/6f00108512f880149afe0904fb4a1cf776612aa0/LICENSE",
+    "sha256": "5d367fb0a07340571542eb4ee8eb1add62d37b71bad6786a57c2e9a86bf76c70"
+  },
+  {
+    "file": "heroicons-LICENSE",
+    "url": "https://raw.githubusercontent.com/tailwindlabs/heroicons/b6de5792d3d53ff81c71b1b8283463aad622e0e3/LICENSE",
+    "sha256": "75523ddd65d9620bea09f84e89d0c373b4205a3708b8a1e9f9598a5438a3e641"
+  },
+  {
+    "file": "tabler-icons-LICENSE",
+    "url": "https://raw.githubusercontent.com/tabler/tabler-icons/01eb08a9bc8075f5bd6828ac30b0a3a038a9ef46/LICENSE",
+    "sha256": "d5a3f948ae5cb95bfc4d2f767ef2bf6a778815b0ddb2d1c48037744cf636518e"
+  },
+  {
+    "file": "inter-OFL.txt",
+    "url": "https://raw.githubusercontent.com/rsms/inter/v3.19/LICENSE.txt",
+    "sha256": "4d7d9c95e7d7f2f0ebf76d5e0b344826b74e903a34028ee18ab54bb639e45906"
+  }
+]

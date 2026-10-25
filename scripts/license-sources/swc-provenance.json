@@ -1,0 +1,22 @@
+[
+  {
+    "file": "swc-v1.3.18-LICENSE",
+    "url": "https://raw.githubusercontent.com/swc-project/swc/v1.3.18/LICENSE",
+    "sha256": "769f80b5bcb42ed0af4e4d2fd74e1ac9bf843cb80c5a29219d1ef3544428a6bb"
+  },
+  {
+    "file": "swc-v1.3.18-define-property.js",
+    "url": "https://raw.githubusercontent.com/swc-project/swc/v1.3.18/crates/swc_ecma_transforms_base/src/helpers/_define_property.js",
+    "sha256": "62f087ae2c228fc775f97076cf1ac7cdf53d974315a141547b0045599cccf402"
+  },
+  {
+    "file": "swc-helpers-0.4.13-package.json",
+    "url": "https://registry.npmjs.org/@swc/helpers/0.4.13",
+    "sha256": "92381a3e912a333dc8f15d6e0b9993cabcd5df43b38e27866cc6a79f64530329"
+  },
+  {
+    "file": "MIT-standard.txt",
+    "url": "https://raw.githubusercontent.com/spdx/license-list-data/v3.26.0/text/MIT.txt",
+    "sha256": "6d7c9e9d7d12c8d3753bdb24417b84819ba4d6c2f025c37948113d86dc81eef9"
+  }
+]

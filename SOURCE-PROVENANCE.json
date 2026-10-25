@@ -1,0 +1,180 @@
+{
+  "applicationVersion": "0.1.0",
+  "sourceTag": "v0.1.0-source",
+  "officialInstaller": {
+    "name": "BaodeWriter-0.1.0-universal.dmg",
+    "url": "https://github.com/cainebaode/BaodeWriter/releases/download/v0.1.0/BaodeWriter-0.1.0-universal.dmg",
+    "sha256": "df4c0c7d3af0a2335876f9f5d57f39f045226b0deee6c46c4654a64b10374713"
+  },
+  "note": "Reviewed app build inputs match the local source used for the existing 0.1.0 release. Public documentation is adapted for a standalone checkout. Rebuilding can change documentation, signatures and DMG timestamps; this is not a bit-for-bit reproducible installer claim. The private BaodeLife server, credentials and user content are outside this repository.",
+  "files": [
+    {
+      "path": "native/App.swift",
+      "sha256": "8a2f3a5b7f698c9ef88a343f80372db9dc540ddcf10eb23ee7ef2523342de762"
+    },
+    {
+      "path": "native/Info.plist",
+      "sha256": "497d1d9e926fdbf2304242da5f9f2b859900778a0459196e138f42d86bd4b42d"
+    },
+    {
+      "path": "native/MakeIcon.swift",
+      "sha256": "cf2da55c24b6b39b33146abe86b763678924d4ff53b6d69cc14ace41876a8924"
+    },
+    {
+      "path": "native/NativeTests.swift",
+      "sha256": "37e4235e343d5c405c77f392996d969c5879cfa64bad6f732e3b37d5037c9ffc"
+    },
+    {
+      "path": "native/NetworkFixture.py",
+      "sha256": "ef8747014ef86a1876b00233e86dfb9defc366ee21c9bd49d92b69d59de4d2fb"
+    },
+    {
+      "path": "native/Store.swift",
+      "sha256": "8a4d5dfa76aa583f3f1e7ba21c931379d2f99c66c4fb655b1b0cff7a836d5577"
+    },
+    {
+      "path": "web/Editor.tsx",
+      "sha256": "1801eb71024bfccbbff2222dac487a00b20730f19702e473f9dc3f580366475c"
+    },
+    {
+      "path": "web/Panels.tsx",
+      "sha256": "361b7d6cc70623615ac3dbcac33a2425726d7aa473054e4440e1fec4d0451202"
+    },
+    {
+      "path": "web/bridge.ts",
+      "sha256": "2873127cea524ad1d891bd11392a303ff0ad6bfdc75609b5248550d680c1be8c"
+    },
+    {
+      "path": "web/index.html",
+      "sha256": "9c6981ef5916fe068cb23bdc4b35872ab7d4897cb42686166c11f54eed7700ae"
+    },
+    {
+      "path": "web/main.tsx",
+      "sha256": "819c1ab6335aa5eac17606d294251b39ffec3e1a93a582a4ed3b48abc580a5a4"
+    },
+    {
+      "path": "web/model.ts",
+      "sha256": "19d18a0724fd57604f2a6d31b47da22f32b446fd961286e4ecb0099fb392be7d"
+    },
+    {
+      "path": "web/style.css",
+      "sha256": "8fd101c6062f90175262fe9604b6b97c2c217390b79d3203cc91a38299a0e334"
+    },
+    {
+      "path": "tests/model.test.ts",
+      "sha256": "0bf3ffd0807f28fcc969db08d4ba1b94c5999406e11ff85a5dbb0c1be3d365dd"
+    },
+    {
+      "path": "scripts/build-native.sh",
+      "sha256": "a75b13890025fcb9c7f9856aa53f4d8884eb1fbbbf82ca4a849511b0609594b5"
+    },
+    {
+      "path": "scripts/build-web.mjs",
+      "sha256": "32939e2a190b396cfb11bc31989ed7ebbee15b8fd7a2c892371cce98c1bb6b09"
+    },
+    {
+      "path": "scripts/license-sources/MIT-standard.txt",
+      "sha256": "6d7c9e9d7d12c8d3753bdb24417b84819ba4d6c2f025c37948113d86dc81eef9"
+    },
+    {
+      "path": "scripts/license-sources/ant-design-icons-LICENSE",
+      "sha256": "5d367fb0a07340571542eb4ee8eb1add62d37b71bad6786a57c2e9a86bf76c70"
+    },
+    {
+      "path": "scripts/license-sources/fast-deep-equal-3.1.3-LICENSE",
+      "sha256": "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
+    },
+    {
+      "path": "scripts/license-sources/heroicons-LICENSE",
+      "sha256": "75523ddd65d9620bea09f84e89d0c373b4205a3708b8a1e9f9598a5438a3e641"
+    },
+    {
+      "path": "scripts/license-sources/inter-OFL.txt",
+      "sha256": "4d7d9c95e7d7f2f0ebf76d5e0b344826b74e903a34028ee18ab54bb639e45906"
+    },
+    {
+      "path": "scripts/license-sources/mantine-7.17.8-LICENSE",
+      "sha256": "61c765e625bc25d55143f14de7554685c52f21d9e671d3d204304691a163d06a"
+    },
+    {
+      "path": "scripts/license-sources/material-icons-LICENSE",
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+    },
+    {
+      "path": "scripts/license-sources/npm-provenance.json",
+      "sha256": "12bc8179c93139b0e19ca42abe12e5f1e543e6fbc32432bccceee155f13ab676"
+    },
+    {
+      "path": "scripts/license-sources/parcel-runtime-js-2.6.2-LICENSE",
+      "sha256": "5cfba9d5711264d45a2431a53c79f597cef12720cc7c764db2602daa92d0bd2a"
+    },
+    {
+      "path": "scripts/license-sources/preact-10.6.4-LICENSE",
+      "sha256": "b3ca27c284ef966111e4e2275e3b15efe46775089c6516045a30646829710a1c"
+    },
+    {
+      "path": "scripts/license-sources/react-icons-5.5.0-LICENSE",
+      "sha256": "a0c1e5484fb4c79e2a683834253864e640e1ca57cb57b807bd5bddb72bbbf74f"
+    },
+    {
+      "path": "scripts/license-sources/remix-icons-LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "scripts/license-sources/sources.json",
+      "sha256": "63417a18be083b521b698008adaf2df338a6e7b9503184e84ca37f72351021ee"
+    },
+    {
+      "path": "scripts/license-sources/swc-helpers-0.4.13-package.json",
+      "sha256": "92381a3e912a333dc8f15d6e0b9993cabcd5df43b38e27866cc6a79f64530329"
+    },
+    {
+      "path": "scripts/license-sources/swc-provenance.json",
+      "sha256": "fdd63d38605b634fb8d63dfb4650efbb9fc249d5a1683fe786b481142f7982e9"
+    },
+    {
+      "path": "scripts/license-sources/swc-v1.3.18-LICENSE",
+      "sha256": "769f80b5bcb42ed0af4e4d2fd74e1ac9bf843cb80c5a29219d1ef3544428a6bb"
+    },
+    {
+      "path": "scripts/license-sources/swc-v1.3.18-define-property.js",
+      "sha256": "62f087ae2c228fc775f97076cf1ac7cdf53d974315a141547b0045599cccf402"
+    },
+    {
+      "path": "scripts/license-sources/tabler-icons-LICENSE",
+      "sha256": "d5a3f948ae5cb95bfc4d2f767ef2bf6a778815b0ddb2d1c48037744cf636518e"
+    },
+    {
+      "path": "scripts/license-sources/tiptap-2.27.3-LICENSE.md",
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "scripts/license-sources/upstream-provenance.json",
+      "sha256": "542bc18ef1e1cc3854648bb39001c77a891ddec68cb0997b89cbb4cdb18ec789"
+    },
+    {
+      "path": "scripts/license-sources/use-sync-external-store-1.2.2-LICENSE",
+      "sha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
+    },
+    {
+      "path": "scripts/licenses.mjs",
+      "sha256": "5ef884a195445096395a48c9a4984a2e62a0e4930ac798a5d11ac8e0c5e86d50"
+    },
+    {
+      "path": "package.json",
+      "sha256": "0360f48c8557c155a2ef6529014a9d614717250f830823fed9394d01b5a0a998"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "887458d3adc04efbb819d2f64c60b302e31ab2b6357779ec1bd5668a70d6ebee"
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "8dc742a4f7c62e74850a63c3ef323ba6b36ee0cffed3edd5ad11b40786c39833"
+    },
+    {
+      "path": ".npmrc",
+      "sha256": "a093bb2fed59d699b7f9a62a5203cc196054c624e9c39c6d908c9e7db5dd2464"
+    }
+  ]
+}

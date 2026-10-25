@@ -32,8 +32,32 @@
 
 完整说明见[使用帮助](https://writer.baode.life/help/)。请在 Issues 附版本、macOS 版本和复现步骤，不要上传私人文稿、备份、密码或登录信息。
 
-## 仓库范围与第三方许可
+## 从源码构建
 
-本仓库用于产品说明和安装包分发，应用自有源码暂未公开，不代表采用了开源许可。
+本仓库公开完整 Mac 应用工程。0.1.0 的固定源码为 [`v0.1.0-source`](https://github.com/cainebaode/BaodeWriter/tree/v0.1.0-source)，[版本页](https://github.com/cainebaode/BaodeWriter/releases/tag/v0.1.0)另附 `BaodeWriter-0.1.0-source.tar.gz` 与 `SOURCE-SHA256SUMS.txt`。
+
+需要 macOS 13+、可用的 Xcode Command Line Tools（Swift / macOS SDK）、Node.js 22 和 npm。以下命令在工程根目录执行：
+
+```sh
+git clone https://github.com/cainebaode/BaodeWriter.git
+cd BaodeWriter
+git checkout v0.1.0-source
+npm ci
+npm run build
+```
+
+完整构建依次执行类型检查、13 项前端数据模型测试、前端打包、第三方许可归集、41 项原生自测，以及双架构编译和安装包生成。输出为 `dist/饱得写作.app`、`dist/BaodeWriter-0.1.0-universal.dmg` 和 `dist/SHA256SUMS.txt`；不会安装应用或访问正式文稿库。
+
+`web/` 是 React / BlockNote 编辑界面；`native/` 是 Swift / AppKit / WebKit 外壳、本地存储及网络桥接；`scripts/` 负责打包与许可审核。存储、桥接和隔离测试细节见 [native/README.md](native/README.md)。本机文稿目录为 `~/Library/Application Support/BaodeWriter/`，与源码目录分开。自行构建后首次试运行可指定临时文稿目录：
+
+```sh
+dist/饱得写作.app/Contents/MacOS/BaodeWriter --data-dir /tmp/baodewriter-source-demo
+```
+
+仓库不含私人文稿、登录会话、服务器配置或个人网站的服务端工程。网站同步需要已兼容的 BaodeLife 接口与管理员登录，单独构建此客户端不会创建网站后台。[SOURCE-PROVENANCE.json](SOURCE-PROVENANCE.json)记录本次公开的构建输入及原安装包摘要；重新构建会受到文档、签名和时间戳影响，不承诺与已发布 DMG 逐字节相同。
+
+## 源码公开与第三方许可
+
+应用自有源码现已公开供查看；作者尚未为自有代码选择额外的开源许可证，公开源码不等于授予任意再分发或商业使用许可。GitHub 平台条款及第三方各自许可不受影响。品牌名称、图标和演示素材也不因源码公开而额外授权。许可选择以仓库后续明确声明为准。
 
 第三方组件遵循各自许可证。安装包的 `Contents/Resources/licenses/` 包含完整声明及 BlockNote 0.31.3 受 MPL 覆盖的对应源码。Releases 同时提供 `Third-Party-Licenses-0.1.0.tar.gz`，无需安装应用即可获取。未采用 BlockNote XL。详情见 [LICENSES.md](LICENSES.md) 与 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。

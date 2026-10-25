@@ -1,0 +1,271 @@
+{
+  "reviewedOn": "2026-10-25",
+  "files": [
+    {
+      "file": "preact-10.6.4-LICENSE",
+      "sha256": "b3ca27c284ef966111e4e2275e3b15efe46775089c6516045a30646829710a1c",
+      "url": "https://registry.npmjs.org/preact/-/preact-10.6.4.tgz"
+    },
+    {
+      "file": "parcel-runtime-js-2.6.2-LICENSE",
+      "sha256": "5cfba9d5711264d45a2431a53c79f597cef12720cc7c764db2602daa92d0bd2a",
+      "url": "https://registry.npmjs.org/@parcel/runtime-js/-/runtime-js-2.6.2.tgz"
+    },
+    {
+      "file": "use-sync-external-store-1.2.2-LICENSE",
+      "sha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85",
+      "url": "https://registry.npmjs.org/use-sync-external-store/-/use-sync-external-store-1.2.2.tgz"
+    },
+    {
+      "file": "fast-deep-equal-3.1.3-LICENSE",
+      "sha256": "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a",
+      "url": "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz"
+    },
+    {
+      "file": "react-icons-5.5.0-LICENSE",
+      "sha256": "a0c1e5484fb4c79e2a683834253864e640e1ca57cb57b807bd5bddb72bbbf74f",
+      "url": "https://registry.npmjs.org/react-icons/-/react-icons-5.5.0.tgz"
+    },
+    {
+      "file": "tiptap-2.27.3-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/ueberdosis/tiptap/0ed4a30a6cda23799a01881f67d01ad218a2ac6d/LICENSE.md",
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "file": "mantine-7.17.8-LICENSE",
+      "url": "https://raw.githubusercontent.com/mantinedev/mantine/7.17.8/LICENSE",
+      "sha256": "61c765e625bc25d55143f14de7554685c52f21d9e671d3d204304691a163d06a"
+    },
+    {
+      "file": "remix-icons-LICENSE",
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/c1c01303b97f81bce88374220e08c3d80c9f241a/License",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "file": "material-icons-LICENSE",
+      "url": "https://raw.githubusercontent.com/google/material-design-icons/ef43291c4d6ebbada3f46e1f584c39bc8f6861b2/LICENSE",
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+    },
+    {
+      "file": "ant-design-icons-LICENSE",
+      "url": "https://raw.githubusercontent.com/ant-design/ant-design-icons/6f00108512f880149afe0904fb4a1cf776612aa0/LICENSE",
+      "sha256": "5d367fb0a07340571542eb4ee8eb1add62d37b71bad6786a57c2e9a86bf76c70"
+    },
+    {
+      "file": "heroicons-LICENSE",
+      "url": "https://raw.githubusercontent.com/tailwindlabs/heroicons/b6de5792d3d53ff81c71b1b8283463aad622e0e3/LICENSE",
+      "sha256": "75523ddd65d9620bea09f84e89d0c373b4205a3708b8a1e9f9598a5438a3e641"
+    },
+    {
+      "file": "tabler-icons-LICENSE",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/01eb08a9bc8075f5bd6828ac30b0a3a038a9ef46/LICENSE",
+      "sha256": "d5a3f948ae5cb95bfc4d2f767ef2bf6a778815b0ddb2d1c48037744cf636518e"
+    },
+    {
+      "file": "inter-OFL.txt",
+      "url": "https://raw.githubusercontent.com/rsms/inter/v3.19/LICENSE.txt",
+      "sha256": "4d7d9c95e7d7f2f0ebf76d5e0b344826b74e903a34028ee18ab54bb639e45906"
+    },
+    {
+      "file": "swc-v1.3.18-LICENSE",
+      "url": "https://raw.githubusercontent.com/swc-project/swc/v1.3.18/LICENSE",
+      "sha256": "769f80b5bcb42ed0af4e4d2fd74e1ac9bf843cb80c5a29219d1ef3544428a6bb"
+    },
+    {
+      "file": "swc-v1.3.18-define-property.js",
+      "url": "https://raw.githubusercontent.com/swc-project/swc/v1.3.18/crates/swc_ecma_transforms_base/src/helpers/_define_property.js",
+      "sha256": "62f087ae2c228fc775f97076cf1ac7cdf53d974315a141547b0045599cccf402"
+    },
+    {
+      "file": "swc-helpers-0.4.13-package.json",
+      "url": "https://registry.npmjs.org/@swc/helpers/0.4.13",
+      "sha256": "92381a3e912a333dc8f15d6e0b9993cabcd5df43b38e27866cc6a79f64530329"
+    },
+    {
+      "file": "MIT-standard.txt",
+      "url": "https://raw.githubusercontent.com/spdx/license-list-data/v3.26.0/text/MIT.txt",
+      "sha256": "6d7c9e9d7d12c8d3753bdb24417b84819ba4d6c2f025c37948113d86dc81eef9"
+    }
+  ],
+  "overrides": [
+    {
+      "prefix": "@tiptap/",
+      "version": "2.27.3",
+      "file": "tiptap-2.27.3-LICENSE.md"
+    },
+    {
+      "prefix": "@mantine/",
+      "version": "7.17.8",
+      "file": "mantine-7.17.8-LICENSE"
+    }
+  ],
+  "embedded": [
+    {
+      "name": "preact",
+      "version": "10.6.4",
+      "license": "MIT",
+      "url": "https://registry.npmjs.org/preact/-/preact-10.6.4.tgz",
+      "owner": "emoji-mart@5.6.0",
+      "files": [
+        "preact-10.6.4-LICENSE"
+      ],
+      "versionEvidence": "https://github.com/missive/emoji-mart/blob/8af68308851a0585c5224fb16f574ca92f4f578c/yarn.lock"
+    },
+    {
+      "name": "@swc/helpers",
+      "version": "0.4.13",
+      "license": "MIT (npm metadata); Apache-2.0 (matching source)",
+      "url": "https://registry.npmjs.org/@swc/helpers/-/helpers-0.4.13.tgz",
+      "owner": "emoji-mart@5.6.0",
+      "files": [
+        "swc-v1.3.18-LICENSE",
+        "swc-v1.3.18-define-property.js",
+        "swc-helpers-0.4.13-package.json",
+        "MIT-standard.txt"
+      ],
+      "versionEvidence": "https://github.com/missive/emoji-mart/blob/8af68308851a0585c5224fb16f574ca92f4f578c/yarn.lock",
+      "note": "Published npm 0.4.13 declares MIT but omits license text. The only embedded helper _defineProperty matches the Apache-2.0 SWC v1.3.18 source exactly after removing export default; both notices and original metadata are preserved.",
+      "sourceHashes": {
+        "node_modules/@swc/helpers/src/_define_property.mjs": "9b84b3e32dadfd16987a483cc242b479116f1f05108e3f7dab541e0b0656b2c6"
+      }
+    },
+    {
+      "name": "@parcel/runtime-js",
+      "version": "2.6.2",
+      "license": "MIT",
+      "url": "https://registry.npmjs.org/@parcel/runtime-js/-/runtime-js-2.6.2.tgz",
+      "owner": "emoji-mart@5.6.0",
+      "files": [
+        "parcel-runtime-js-2.6.2-LICENSE"
+      ],
+      "versionEvidence": "https://github.com/missive/emoji-mart/blob/8af68308851a0585c5224fb16f574ca92f4f578c/yarn.lock"
+    },
+    {
+      "name": "use-sync-external-store",
+      "version": "1.2.2",
+      "license": "MIT",
+      "url": "https://registry.npmjs.org/use-sync-external-store/-/use-sync-external-store-1.2.2.tgz",
+      "owner": "@tiptap/react@2.27.3",
+      "files": [
+        "use-sync-external-store-1.2.2-LICENSE"
+      ],
+      "versionEvidence": "https://github.com/ueberdosis/tiptap/blob/0ed4a30a6cda23799a01881f67d01ad218a2ac6d/package-lock.json"
+    },
+    {
+      "name": "fast-deep-equal",
+      "version": "3.1.3",
+      "license": "MIT",
+      "url": "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz",
+      "owner": "@tiptap/react@2.27.3",
+      "files": [
+        "fast-deep-equal-3.1.3-LICENSE"
+      ],
+      "versionEvidence": "https://github.com/ueberdosis/tiptap/blob/0ed4a30a6cda23799a01881f67d01ad218a2ac6d/package-lock.json"
+    },
+    {
+      "name": "react-icons",
+      "version": "5.5.0",
+      "license": "MIT",
+      "url": "https://registry.npmjs.org/react-icons/-/react-icons-5.5.0.tgz",
+      "owner": "@blocknote/react@0.31.3",
+      "files": [
+        "react-icons-5.5.0-LICENSE"
+      ],
+      "versionEvidence": "https://github.com/TypeCellOS/BlockNote/blob/v0.31.3/pnpm-lock.yaml",
+      "iconSets": [
+        "lib",
+        "ri",
+        "ai",
+        "md",
+        "tb",
+        "hi"
+      ]
+    },
+    {
+      "name": "react-icons",
+      "version": "5.5.0",
+      "license": "MIT",
+      "url": "https://registry.npmjs.org/react-icons/-/react-icons-5.5.0.tgz",
+      "owner": "@blocknote/mantine@0.31.3",
+      "files": [
+        "react-icons-5.5.0-LICENSE"
+      ],
+      "versionEvidence": "https://github.com/TypeCellOS/BlockNote/blob/v0.31.3/pnpm-lock.yaml",
+      "iconSets": [
+        "lib",
+        "ri",
+        "ai",
+        "md",
+        "tb",
+        "hi"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "id": "remix-icons",
+      "name": "Remix Icon",
+      "license": "Apache-2.0",
+      "url": "https://github.com/Remix-Design/RemixIcon/tree/c1c01303b97f81bce88374220e08c3d80c9f241a",
+      "files": [
+        "remix-icons-LICENSE"
+      ],
+      "note": "Generic editor icons prebundled in react-icons 5.5.0; exact upstream revision from its icon index.",
+      "versionEvidence": "https://github.com/react-icons/react-icons/blob/v5.5.0/packages/react-icons/src/icons/index.ts"
+    },
+    {
+      "id": "material-icons",
+      "name": "Material Design Icons",
+      "license": "Apache-2.0",
+      "url": "https://github.com/google/material-design-icons/tree/ef43291c4d6ebbada3f46e1f584c39bc8f6861b2",
+      "files": [
+        "material-icons-LICENSE"
+      ],
+      "note": "Generic editor icons prebundled in react-icons 5.5.0; exact upstream revision from its icon index.",
+      "versionEvidence": "https://github.com/react-icons/react-icons/blob/v5.5.0/packages/react-icons/src/icons/index.ts"
+    },
+    {
+      "id": "ant-design-icons",
+      "name": "Ant Design Icons",
+      "license": "MIT",
+      "url": "https://github.com/ant-design/ant-design-icons/tree/6f00108512f880149afe0904fb4a1cf776612aa0",
+      "files": [
+        "ant-design-icons-LICENSE"
+      ],
+      "note": "Generic editor icons prebundled in react-icons 5.5.0; exact upstream revision from its icon index.",
+      "versionEvidence": "https://github.com/react-icons/react-icons/blob/v5.5.0/packages/react-icons/src/icons/index.ts"
+    },
+    {
+      "id": "heroicons",
+      "name": "Heroicons",
+      "license": "MIT",
+      "url": "https://github.com/tailwindlabs/heroicons/tree/b6de5792d3d53ff81c71b1b8283463aad622e0e3",
+      "files": [
+        "heroicons-LICENSE"
+      ],
+      "note": "Generic editor icons prebundled in react-icons 5.5.0; exact upstream revision from its icon index.",
+      "versionEvidence": "https://github.com/react-icons/react-icons/blob/v5.5.0/packages/react-icons/src/icons/index.ts"
+    },
+    {
+      "id": "tabler-icons",
+      "name": "Tabler Icons",
+      "license": "MIT",
+      "url": "https://github.com/tabler/tabler-icons/tree/01eb08a9bc8075f5bd6828ac30b0a3a038a9ef46",
+      "files": [
+        "tabler-icons-LICENSE"
+      ],
+      "note": "Generic editor icons prebundled in react-icons 5.5.0; exact upstream revision from its icon index.",
+      "versionEvidence": "https://github.com/react-icons/react-icons/blob/v5.5.0/packages/react-icons/src/icons/index.ts"
+    },
+    {
+      "id": "inter",
+      "name": "Inter",
+      "license": "OFL-1.1",
+      "url": "https://github.com/rsms/inter/tree/v3.19",
+      "files": [
+        "inter-OFL.txt"
+      ],
+      "note": "Original font files retained only in the unmodified BlockNote source archive; the application interface uses system fonts."
+    }
+  ]
+}
