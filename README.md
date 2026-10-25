@@ -36,7 +36,7 @@
 
 本仓库公开完整 Mac 应用工程。0.1.0 的固定源码为 [`v0.1.0-source`](https://github.com/cainebaode/BaodeWriter/tree/v0.1.0-source)，[版本页](https://github.com/cainebaode/BaodeWriter/releases/tag/v0.1.0)另附 `BaodeWriter-0.1.0-source.tar.gz` 与 `SOURCE-SHA256SUMS.txt`。
 
-需要 macOS 13+、可用的 Xcode Command Line Tools（Swift / macOS SDK）、Node.js 22 和 npm。以下命令在工程根目录执行：
+完整打包请使用 Apple Silicon Mac、macOS 13+、可用的 Xcode Command Line Tools（Swift / macOS SDK）、Node.js 22 和 npm。当前脚本在本机执行 arm64 原生自测，再交叉编译 Intel 产物；尚未验证在 Intel Mac 上构建。以下命令在工程根目录执行：
 
 ```sh
 git clone https://github.com/cainebaode/BaodeWriter.git
