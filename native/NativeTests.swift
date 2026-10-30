@@ -40,6 +40,36 @@ enum NativeTests {
       let redirectBlocked = false;
       try { await bridge({action:'downloadImage',url:'/redirect-out'}); } catch { redirectBlocked = true; }
       if (!redirectBlocked) throw new Error('off-origin redirect was followed');
+      for (const provider of ['deepseek','qwen','doubao','kimi','glm','minimax','custom']) {
+        const id = crypto.randomUUID();
+        const configuration = {id,provider,name:'Isolated '+provider,baseURL:initial.siteURL+'/ai/'+provider,model:'fixture'};
+        try {
+          const saved = await bridge({action:'aiSave',configuration,apiKey:'isolated-fixture-key',makeDefault:true});
+          if (JSON.stringify(saved).includes('isolated-fixture-key') || saved.defaultID !== id) throw new Error('AI settings secret or default failure');
+          const tested = await bridge({action:'aiTest',requestID:crypto.randomUUID(),configurationID:id,messages:[{role:'user',content:'Do not send this document during a connection test'}]});
+          if (tested.content !== '连接成功') throw new Error('connection test sent document data');
+          const result = await bridge({action:'aiRequest',requestID:crypto.randomUUID(),configurationID:id,messages:[{role:'user',content:'写作建议'}]});
+          if (!result.content) throw new Error('AI text result missing');
+          let changedHost = false;
+          try { await bridge({action:'aiSave',configuration:{...configuration,baseURL:'https://example.com/v1'},apiKey:''}); } catch { changedHost = true; }
+          if (!changedHost) throw new Error('old secret reused on a different endpoint');
+          for (const model of ['truncated','redirect']) {
+            await bridge({action:'aiSave',configuration:{...configuration,model},apiKey:''});
+            let rejected = false;
+            try { await bridge({action:'aiRequest',requestID:crypto.randomUUID(),configurationID:id,messages:[{role:'user',content:'test'}]}); } catch { rejected = true; }
+            if (!rejected) throw new Error('AI incomplete result or redirect accepted');
+          }
+          if (provider === 'custom') {
+            await bridge({action:'aiSave',configuration:{...configuration,model:'slow'},apiKey:''});
+            const requestID = crypto.randomUUID();
+            const pending = bridge({action:'aiRequest',requestID,configurationID:id,messages:[{role:'user',content:'cancel me'}]}).then(()=>false,()=>true);
+            await new Promise(resolve=>setTimeout(resolve,150));
+            await bridge({action:'aiCancel',requestID});
+            if (!await pending) throw new Error('AI cancellation did not stop the request');
+          }
+        } finally { await bridge({action:'aiRemove',id}); }
+      }
+      if ((await bridge({action:'aiLoad'})).configurations.length) throw new Error('isolated AI keys were not removed');
       document.body.append('Loopback login, cookie, Origin, JSON, upload, download and redirect tests passed.');
     }
     return true;
@@ -162,6 +192,52 @@ enum NativeTests {
         try rejects("duplicate folder IDs rejected") { _ = try organized.save(duplicateFolders) }
         var missingFolder = grouped; missingFolder["folders"] = [] as [[String: String]]
         try rejects("missing folder membership rejected before save") { _ = try organized.save(missingFolder) }
-        print("PASS: \(assertions) native storage, recovery, backup, image and origin assertions. No production files or servers were accessed.")
+        try check(try AIService.endpoint("https://api.deepseek.com/").absoluteString == "https://api.deepseek.com/chat/completions", "AI endpoint appended once")
+        try check(try AIService.endpoint("https://example.com/v1/chat/completions").path == "/v1/chat/completions", "complete AI endpoint retained")
+        try check(try AIService.endpoint("http://127.0.0.1:1234/v1").path == "/v1/chat/completions", "isolated AI fixture endpoint")
+        for value in ["http://remote.example/v1", "https://name:secret@example.com/v1", "https://example.com/v1?key=secret", "file:///private/tmp/data"] {
+            try rejects("unsafe AI endpoint") { _ = try AIService.endpoint(value) }
+        }
+        let complete = Data(#"{"choices":[{"finish_reason":"stop","message":{"content":"连接成功"}}]}"#.utf8)
+        try check(try AIService.parseResponse(complete, status: 200)["content"] as? String == "连接成功", "complete AI response")
+        for reason in ["length", "content_filter", "tool_calls"] {
+            let incomplete = Data("{\"choices\":[{\"finish_reason\":\"\(reason)\",\"message\":{\"content\":\"partial\"}}]}".utf8)
+            try rejects("incomplete AI response never usable") { _ = try AIService.parseResponse(incomplete, status: 200) }
+        }
+        for status in [301, 400, 401, 402, 403, 404, 429, 500] { try rejects("AI HTTP failure") { _ = try AIService.parseResponse(complete, status: status) } }
+        var aiLibrary = fixture("带 AI 记录")
+        aiLibrary["aiSessions"] = ["test-1": ["messages": [["id": "m", "role": "assistant", "text": "本地建议", "at": "now"]]]]
+        _ = try organized.save(aiLibrary)
+        let aiBackup = temporary.appendingPathComponent("ai-records.baodewriter")
+        _ = try organized.exportBackup(to: aiBackup)
+        _ = try organizedRestore.restoreBackup(from: aiBackup)
+        try check((try organizedRestore.load()["library"] as? [String: Any])?["aiSessions"] != nil, "AI history survives content backup")
+        var trashLibrary = fixture("废纸篓中的文稿")
+        var trashNotes = trashLibrary["notes"] as! [[String: Any]]
+        trashNotes[0]["trashedAt"] = "2026-10-25T12:00:00.000Z"; trashLibrary["notes"] = trashNotes
+        _ = try organized.save(trashLibrary)
+        let trashReopened = try WriterStore(root: organized.root).load()["library"] as! [String: Any]
+        try check((trashReopened["notes"] as? [[String: Any]])?.first?["trashedAt"] as? String == "2026-10-25T12:00:00.000Z", "trash status survives reopen")
+        let trashBackup = temporary.appendingPathComponent("trash.baodewriter")
+        _ = try organized.exportBackup(to: trashBackup); _ = try organizedRestore.restoreBackup(from: trashBackup)
+        try check(((try organizedRestore.load()["library"] as? [String: Any])?["notes"] as? [[String: Any]])?.first?["trashedAt"] as? String == "2026-10-25T12:00:00.000Z", "trash status survives backup restore")
+        trashNotes[0]["trashedAt"] = "invalid"; trashLibrary["notes"] = trashNotes
+        try rejects("invalid deletion date rejected") { _ = try organized.save(trashLibrary) }
+
+        var treeLibrary = fixture("父文稿")
+        var treeNotes = treeLibrary["notes"] as! [[String: Any]]
+        var child = treeNotes[0]; child["id"] = "child"; child["parentId"] = "test-1"
+        treeNotes.append(child); treeLibrary["notes"] = treeNotes
+        _ = try organized.save(treeLibrary)
+        let treeReopened = try WriterStore(root: organized.root).load()["library"] as! [String: Any]
+        try check((treeReopened["notes"] as? [[String: Any]])?.last?["parentId"] as? String == "test-1", "document parent survives reopen")
+        let treeBackup = temporary.appendingPathComponent("tree.baodewriter")
+        _ = try organized.exportBackup(to: treeBackup); _ = try organizedRestore.restoreBackup(from: treeBackup)
+        try check(((try organizedRestore.load()["library"] as? [String: Any])?["notes"] as? [[String: Any]])?.last?["parentId"] as? String == "test-1", "document tree survives backup restore")
+        treeNotes[0]["parentId"] = "child"; treeLibrary["notes"] = treeNotes
+        try rejects("cyclic document hierarchy rejected") { _ = try organized.save(treeLibrary) }
+        treeNotes[0].removeValue(forKey: "parentId"); treeNotes[1]["parentId"] = "missing"; treeLibrary["notes"] = treeNotes
+        try rejects("missing document parent rejected") { _ = try organized.save(treeLibrary) }
+        print("PASS: \(assertions) native storage, recovery, backup, image, origin and AI response assertions. No production files or servers were accessed.")
     }
 }

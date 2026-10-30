@@ -88,6 +88,9 @@ final class WriterStore {
         let date = ISO8601DateFormatter(); date.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let basicDate = ISO8601DateFormatter()
         for note in notes {
+            if let value = note["trashedAt"] {
+                guard let timestamp = value as? String, date.date(from: timestamp) != nil || basicDate.date(from: timestamp) != nil else { throw WriterError("文稿删除日期无效，原文件已保留。") }
+            }
             if let folder = note["folderId"], !(folder is NSNull) {
                 guard let id = folder as? String, folderIDs.contains(id) else { throw WriterError("文稿关联的文件夹无法识别，原文件已保留。") }
             }
@@ -104,6 +107,19 @@ final class WriterStore {
                 guard let data = (document["content"] as? String)?.data(using: .utf8), (try? JSONSerialization.jsonObject(with: data)) is [Any] else { throw WriterError("块编辑文稿内容无效，原文件已保留。") }
             }
         }
+        let byID = Dictionary(uniqueKeysWithValues: notes.map { ($0["id"] as! String, $0) })
+        for note in notes {
+            var seen = Set([note["id"] as! String])
+            var current = note
+            while let value = current["parentId"], !(value is NSNull) {
+                guard let parentID = value as? String, let parent = byID[parentID], seen.insert(parentID).inserted,
+                      (parent["folderId"] as? String) == (current["folderId"] as? String) else {
+                    throw WriterError("文稿层级无效：父文稿缺失、层级循环或文件夹不一致。原文件已保留。")
+                }
+                current = parent
+            }
+        }
+
     }
 
     func load() throws -> [String: Any] {

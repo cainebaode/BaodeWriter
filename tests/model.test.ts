@@ -1,7 +1,8 @@
+import { moveBranch } from '../web/tree';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyDocument, publicationDocument, mediaURLs, replaceMedia, noteKey, chosenDate, dateValue, plainText } from '../web/model';
-import { documentHeadings, moveNotes, removeFolder, dirty, type Library } from '../web/model';
+import { documentHeadings, removeFolder, dirty, type Library } from '../web/model';
 test('nested BlockNote images and cover survive localization and publication roundtrip',()=>{const doc={...emptyDocument(),content:JSON.stringify([{type:'paragraph',content:[{type:'text',text:'正文'}],children:[{type:'image',props:{url:'/uploads/photo.png'}}]}]),coverImage:'/uploads/cover.jpg'};assert.deepEqual(mediaURLs(doc),['/uploads/cover.jpg','/uploads/photo.png']);const localized=replaceMedia(doc,{'/uploads/photo.png':'writer-asset://local/p.png','/uploads/cover.jpg':'writer-asset://local/c.jpg'});assert.equal(plainText(localized),'正文');assert.deepEqual(replaceMedia(localized,{'writer-asset://local/p.png':'/uploads/photo.png','writer-asset://local/c.jpg':'/uploads/cover.jpg'}),doc);});
 test('Markdown source preserves HTML, footnotes, tables, links, and images around replacement',()=>{const source='# 原文\n\n![图](/uploads/a.png "标题")\n\n<img src="/uploads/b.jpg" width="20">\n\n[^x]: 脚注\n\n[链接](/uploads/a.png)\n|一|二|\n|-|-|';const doc={...emptyDocument(),contentType:'markdown' as const,content:source};assert.deepEqual(mediaURLs(doc),['/uploads/a.png','/uploads/b.jpg']);const localized=replaceMedia(doc,{'/uploads/a.png':'writer-asset://local/a.png'});assert.ok(localized.content.includes('[链接](/uploads/a.png)'));assert.equal(replaceMedia(localized,{'writer-asset://local/a.png':'/uploads/a.png'}).content,source);});
 test('date selection stays on chosen calendar day and untouched ISO remains precise',()=>{assert.equal(dateValue(chosenDate('2026-10-25')),'2026-10-25');assert.equal(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai'}).format(new Date(chosenDate('2026-10-25'))),'2026-10-25');const a={document:emptyDocument(),displayDate:'2026-10-25T00:12:34.123Z'};assert.notEqual(noteKey(a),noteKey({...a,displayDate:chosenDate('2026-10-25')}));});
@@ -49,10 +50,10 @@ test('Markdown outline uses real heading positions while excluding code and esca
 test('moving and removing folders preserves article contents, timestamps and publication state',()=>{
  const n={id:'note',document:emptyDocument(),displayDate:'2026-10-25',createdAt:'a',updatedAt:'b',base:null,assets:{}};
  const library:Library={schema:1,folders:[{id:'folder',name:'日常'}],notes:[{...n,syncedKey:noteKey(n)}]};
- const moved=moveNotes(library,['note'],'folder');assert.equal(moved.notes[0].folderId,'folder');assert.equal(dirty(moved.notes[0]),false);assert.equal(moved.notes[0].updatedAt,'b');assert.equal(moved.notes[0].document,n.document);
+ const moved=moveBranch(library,['note'],'folder:folder');assert.equal(moved.notes[0].folderId,'folder');assert.equal(dirty(moved.notes[0]),false);assert.equal(moved.notes[0].updatedAt,'b');assert.equal(moved.notes[0].document,n.document);
  const removed=removeFolder(moved,'folder');assert.equal(removed.notes.length,1);assert.equal(removed.notes[0].folderId,undefined);assert.equal(removed.folders?.length,0);assert.equal(dirty(removed.notes[0]),false);
  assert.equal(library.notes[0].folderId,undefined);
 });
 test('moving into a missing folder is rejected before changing the library',()=>{
- const library:Library={schema:1,notes:[]};assert.throws(()=>moveNotes(library,[],'missing'),/文件夹不存在/);assert.deepEqual(library,{schema:1,notes:[]});
+ const library:Library={schema:1,notes:[]};assert.throws(()=>moveBranch(library,[],'folder:missing'),/文件夹不存在/);assert.deepEqual(library,{schema:1,notes:[]});
 });

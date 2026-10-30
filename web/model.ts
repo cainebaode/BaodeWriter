@@ -1,11 +1,12 @@
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { parseFragment } from 'parse5';
+import type { AIRevision, AISession } from './ai';
 
 export type Document = {title:string;slug:string;description:string;content:string;contentType:'markdown'|'blocknote';coverImage:string;tags:string[]};
 export type Remote = {id:string;document:Document;version:string;revision:number;publishedRevision:number;status:string;publishedAt:string|null;updatedAt:string;createdAt:string;publicSlug:string;deleted?:boolean};
-export type Note = {id:string;document:Document;displayDate:string;createdAt:string;updatedAt:string;base:Remote|null;syncedKey?:string;assets:Record<string,string>;conflict?:{remote:Remote|null;detectedAt:string};error?:string;archived?:boolean;siteURL?:string;resourceWarning?:string;folderId?:string};
+export type Note = {id:string;document:Document;displayDate:string;createdAt:string;updatedAt:string;base:Remote|null;syncedKey?:string;assets:Record<string,string>;conflict?:{remote:Remote|null;detectedAt:string};error?:string;archived?:boolean;trashedAt?:string;siteURL?:string;resourceWarning?:string;folderId?:string;parentId?:string;aiRevisions?:AIRevision[]};
 export type Folder = {id:string;name:string};
-export type Library = {schema:1;notes:Note[];folders?:Folder[]};
+export type Library = {schema:1;notes:Note[];folders?:Folder[];aiSessions?:Record<string,AISession>};
 export type Heading = {id:string;level:number;text:string;offset?:number};
 export function documentHeadings(doc:Document):Heading[]{
  const result:Heading[]=[];
@@ -15,8 +16,13 @@ export function documentHeadings(doc:Document):Heading[]{
  }else{try{const walk=(blocks:any[])=>blocks.forEach(block=>{if(block.type==='heading'){const text=plainText({...doc,content:JSON.stringify([{content:block.content}])}).trim();if(text)result.push({id:block.id,level:Number(block.props?.level)||1,text});}if(Array.isArray(block.children))walk(block.children);});walk(JSON.parse(doc.content||'[]'));}catch{/* Original content stays available in the editor. */}}
  return result;
 }
-export function moveNotes(library:Library,ids:string[],folderId:string):Library{if(folderId&&!library.folders?.some(f=>f.id===folderId))throw new Error('文件夹不存在，请重新选择');const selected=new Set(ids);return {...library,notes:library.notes.map(n=>selected.has(n.id)?{...n,folderId:folderId||undefined}:n)};}
 export function removeFolder(library:Library,id:string):Library{return {...library,folders:(library.folders||[]).filter(f=>f.id!==id),notes:library.notes.map(n=>n.folderId===id?{...n,folderId:undefined}:n)};}
+export function trashNotes(library:Library,ids:string[],at:string):Library{const selected=new Set(ids);return {...library,notes:library.notes.map(n=>selected.has(n.id)&&!n.trashedAt?{...n,trashedAt:at}:n)};}
+export function restoreTrashedNote(library:Library,id:string):Library{return {...library,notes:library.notes.map(n=>{if(n.id!==id)return n;const {trashedAt,...rest}=n;return rest;})};}
+export function deleteTrashedNotes(library:Library,ids:string[]):Library{
+ if(ids.some(id=>!library.notes.find(n=>n.id===id)?.trashedAt))throw new Error('只能彻底删除废纸篓中的文稿。');
+ const selected=new Set(ids);return {...library,notes:library.notes.filter(n=>!selected.has(n.id)).map(n=>n.parentId&&selected.has(n.parentId)?{...n,parentId:undefined}:n),...(library.aiSessions?{aiSessions:Object.fromEntries(Object.entries(library.aiSessions).filter(([id])=>!selected.has(id)))}:{})};
+}
 export const emptyDocument = ():Document => ({title:'',slug:'',description:'',content:'[]',contentType:'blocknote',coverImage:'',tags:[]});
 export function dateValue(value:string) { return value.slice(0,10); }
 export function chosenDate(value:string) { return `${value}T12:00:00.000Z`; }

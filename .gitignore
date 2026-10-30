@@ -1,5 +1,21 @@
+# Rebuildable dependencies and products
 node_modules/
 build/
 dist/
 .build/
 .DS_Store
+*.log
+
+# Internal plans, verification evidence, and publishing operations
+/docs/
+/evidence/
+/publishing/
+/.local-backups/
+
+# Local runtime data and secrets
+.env
+.env.*
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*

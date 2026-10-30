@@ -1,180 +1,88 @@
 {
-  "applicationVersion": "0.1.0",
-  "sourceTag": "v0.1.0-source",
-  "officialInstaller": {
-    "name": "BaodeWriter-0.1.0-universal.dmg",
-    "url": "https://github.com/cainebaode/BaodeWriter/releases/download/v0.1.0/BaodeWriter-0.1.0-universal.dmg",
-    "sha256": "df4c0c7d3af0a2335876f9f5d57f39f045226b0deee6c46c4654a64b10374713"
-  },
-  "note": "Reviewed app build inputs match the local source used for the existing 0.1.0 release. Public documentation is adapted for a standalone checkout. Rebuilding can change documentation, signatures and DMG timestamps; this is not a bit-for-bit reproducible installer claim. The private BaodeLife server, credentials and user content are outside this repository.",
-  "files": [
-    {
-      "path": "native/App.swift",
-      "sha256": "8a2f3a5b7f698c9ef88a343f80372db9dc540ddcf10eb23ee7ef2523342de762"
-    },
-    {
-      "path": "native/Info.plist",
-      "sha256": "497d1d9e926fdbf2304242da5f9f2b859900778a0459196e138f42d86bd4b42d"
-    },
-    {
-      "path": "native/MakeIcon.swift",
-      "sha256": "cf2da55c24b6b39b33146abe86b763678924d4ff53b6d69cc14ace41876a8924"
-    },
-    {
-      "path": "native/NativeTests.swift",
-      "sha256": "37e4235e343d5c405c77f392996d969c5879cfa64bad6f732e3b37d5037c9ffc"
-    },
-    {
-      "path": "native/NetworkFixture.py",
-      "sha256": "ef8747014ef86a1876b00233e86dfb9defc366ee21c9bd49d92b69d59de4d2fb"
-    },
-    {
-      "path": "native/Store.swift",
-      "sha256": "8a4d5dfa76aa583f3f1e7ba21c931379d2f99c66c4fb655b1b0cff7a836d5577"
-    },
-    {
-      "path": "web/Editor.tsx",
-      "sha256": "1801eb71024bfccbbff2222dac487a00b20730f19702e473f9dc3f580366475c"
-    },
-    {
-      "path": "web/Panels.tsx",
-      "sha256": "361b7d6cc70623615ac3dbcac33a2425726d7aa473054e4440e1fec4d0451202"
-    },
-    {
-      "path": "web/bridge.ts",
-      "sha256": "2873127cea524ad1d891bd11392a303ff0ad6bfdc75609b5248550d680c1be8c"
-    },
-    {
-      "path": "web/index.html",
-      "sha256": "9c6981ef5916fe068cb23bdc4b35872ab7d4897cb42686166c11f54eed7700ae"
-    },
-    {
-      "path": "web/main.tsx",
-      "sha256": "819c1ab6335aa5eac17606d294251b39ffec3e1a93a582a4ed3b48abc580a5a4"
-    },
-    {
-      "path": "web/model.ts",
-      "sha256": "19d18a0724fd57604f2a6d31b47da22f32b446fd961286e4ecb0099fb392be7d"
-    },
-    {
-      "path": "web/style.css",
-      "sha256": "8fd101c6062f90175262fe9604b6b97c2c217390b79d3203cc91a38299a0e334"
-    },
-    {
-      "path": "tests/model.test.ts",
-      "sha256": "0bf3ffd0807f28fcc969db08d4ba1b94c5999406e11ff85a5dbb0c1be3d365dd"
-    },
-    {
-      "path": "scripts/build-native.sh",
-      "sha256": "a75b13890025fcb9c7f9856aa53f4d8884eb1fbbbf82ca4a849511b0609594b5"
-    },
-    {
-      "path": "scripts/build-web.mjs",
-      "sha256": "32939e2a190b396cfb11bc31989ed7ebbee15b8fd7a2c892371cce98c1bb6b09"
-    },
-    {
-      "path": "scripts/license-sources/MIT-standard.txt",
-      "sha256": "6d7c9e9d7d12c8d3753bdb24417b84819ba4d6c2f025c37948113d86dc81eef9"
-    },
-    {
-      "path": "scripts/license-sources/ant-design-icons-LICENSE",
-      "sha256": "5d367fb0a07340571542eb4ee8eb1add62d37b71bad6786a57c2e9a86bf76c70"
-    },
-    {
-      "path": "scripts/license-sources/fast-deep-equal-3.1.3-LICENSE",
-      "sha256": "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
-    },
-    {
-      "path": "scripts/license-sources/heroicons-LICENSE",
-      "sha256": "75523ddd65d9620bea09f84e89d0c373b4205a3708b8a1e9f9598a5438a3e641"
-    },
-    {
-      "path": "scripts/license-sources/inter-OFL.txt",
-      "sha256": "4d7d9c95e7d7f2f0ebf76d5e0b344826b74e903a34028ee18ab54bb639e45906"
-    },
-    {
-      "path": "scripts/license-sources/mantine-7.17.8-LICENSE",
-      "sha256": "61c765e625bc25d55143f14de7554685c52f21d9e671d3d204304691a163d06a"
-    },
-    {
-      "path": "scripts/license-sources/material-icons-LICENSE",
-      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
-    },
-    {
-      "path": "scripts/license-sources/npm-provenance.json",
-      "sha256": "12bc8179c93139b0e19ca42abe12e5f1e543e6fbc32432bccceee155f13ab676"
-    },
-    {
-      "path": "scripts/license-sources/parcel-runtime-js-2.6.2-LICENSE",
-      "sha256": "5cfba9d5711264d45a2431a53c79f597cef12720cc7c764db2602daa92d0bd2a"
-    },
-    {
-      "path": "scripts/license-sources/preact-10.6.4-LICENSE",
-      "sha256": "b3ca27c284ef966111e4e2275e3b15efe46775089c6516045a30646829710a1c"
-    },
-    {
-      "path": "scripts/license-sources/react-icons-5.5.0-LICENSE",
-      "sha256": "a0c1e5484fb4c79e2a683834253864e640e1ca57cb57b807bd5bddb72bbbf74f"
-    },
-    {
-      "path": "scripts/license-sources/remix-icons-LICENSE",
-      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
-    },
-    {
-      "path": "scripts/license-sources/sources.json",
-      "sha256": "63417a18be083b521b698008adaf2df338a6e7b9503184e84ca37f72351021ee"
-    },
-    {
-      "path": "scripts/license-sources/swc-helpers-0.4.13-package.json",
-      "sha256": "92381a3e912a333dc8f15d6e0b9993cabcd5df43b38e27866cc6a79f64530329"
-    },
-    {
-      "path": "scripts/license-sources/swc-provenance.json",
-      "sha256": "fdd63d38605b634fb8d63dfb4650efbb9fc249d5a1683fe786b481142f7982e9"
-    },
-    {
-      "path": "scripts/license-sources/swc-v1.3.18-LICENSE",
-      "sha256": "769f80b5bcb42ed0af4e4d2fd74e1ac9bf843cb80c5a29219d1ef3544428a6bb"
-    },
-    {
-      "path": "scripts/license-sources/swc-v1.3.18-define-property.js",
-      "sha256": "62f087ae2c228fc775f97076cf1ac7cdf53d974315a141547b0045599cccf402"
-    },
-    {
-      "path": "scripts/license-sources/tabler-icons-LICENSE",
-      "sha256": "d5a3f948ae5cb95bfc4d2f767ef2bf6a778815b0ddb2d1c48037744cf636518e"
-    },
-    {
-      "path": "scripts/license-sources/tiptap-2.27.3-LICENSE.md",
-      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
-    },
-    {
-      "path": "scripts/license-sources/upstream-provenance.json",
-      "sha256": "542bc18ef1e1cc3854648bb39001c77a891ddec68cb0997b89cbb4cdb18ec789"
-    },
-    {
-      "path": "scripts/license-sources/use-sync-external-store-1.2.2-LICENSE",
-      "sha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
-    },
-    {
-      "path": "scripts/licenses.mjs",
-      "sha256": "5ef884a195445096395a48c9a4984a2e62a0e4930ac798a5d11ac8e0c5e86d50"
-    },
-    {
-      "path": "package.json",
-      "sha256": "0360f48c8557c155a2ef6529014a9d614717250f830823fed9394d01b5a0a998"
-    },
-    {
-      "path": "package-lock.json",
-      "sha256": "887458d3adc04efbb819d2f64c60b302e31ab2b6357779ec1bd5668a70d6ebee"
-    },
-    {
-      "path": "tsconfig.json",
-      "sha256": "8dc742a4f7c62e74850a63c3ef323ba6b36ee0cffed3edd5ad11b40786c39833"
-    },
-    {
-      "path": ".npmrc",
-      "sha256": "a093bb2fed59d699b7f9a62a5203cc196054c624e9c39c6d908c9e7db5dd2464"
-    }
-  ]
+  "format": "BaodeWriter source snapshot",
+  "version": "0.8.1",
+  "build": 19,
+  "date": "2026-10-30",
+  "previousPublicCommit": "ac770abc5f075a471a7be4f8db66d26b3152cb35",
+  "existingDownloadTag": "v0.1.0",
+  "scope": "Application source and product site synchronization; no new binary release or deployment.",
+  "bundleIdentifier": "life.baode.writer",
+  "files": {
+    "native/AIService.swift": "a877efff298524445e6d59943b482896a2f18f770cbd9a4944e3afb62018d863",
+    "native/App.swift": "9d202f186b426aee4b3adbc3c049b9090a7aef31dd93b7b9725c1c5e62f1a535",
+    "native/Info.plist": "229bc70e588cb532d33d7a586429b9c9141b1bed401281c81f2ae2255c2682c9",
+    "native/MakeIcon.swift": "cf2da55c24b6b39b33146abe86b763678924d4ff53b6d69cc14ace41876a8924",
+    "native/NativeEditorTests.swift": "441f410bebabc2308d59d4196e33e736dcc33e25cd15c4612b82951420d59f62",
+    "native/NativeTests.swift": "6cb6a5977fe0864fecb3a467d6ccab9e3634e9dfea05f9de0f53b1070265bbd9",
+    "native/NetworkFixture.py": "78deb5090ea61b5f431e493ff2df02169934bf22f73cb26a0a4a8bdb5721af87",
+    "native/README.md": "7b01e959a3d2044703f4f4828e45f7765f1b8728cb86369310c4617261994800",
+    "native/Store.swift": "3c7cb166fef4d4c3709b936993d780f5b53d7fe538b6daedff196fdab05313c2",
+    "web/AIAssistant.tsx": "c581938ad9f303933ba566e5deeced76cf5b52d7a41a32f26b0974623f0dc093",
+    "web/AIReview.tsx": "262dbfe4bf01cf916d4585d63d823888c18e6c815e7493567a3c78880f3ecc75",
+    "web/DocumentWorkspace.tsx": "470c023cabb63e62d00a6a3138853ec1320e94ec5904c3d3578ec8897230ee4b",
+    "web/Editor.tsx": "ea8e7c2fb56a61db98d420bb33361aa78acec0fe90fec252f95d225a0e90b776",
+    "web/Icons.tsx": "86e3407456f16dd2cd79e3cee8ed7cae5861fd08ce278cde9935788da2cf1c19",
+    "web/LibrarySearch.tsx": "d6c3baed7e6e90dfc33a04fc9643e2abfb4f8fb7972124c48295f35e8016c2e8",
+    "web/LibraryTree.tsx": "3802dba1242b2ae05b328321fcd2f7c0b7f2d2dc5a90a2dac56b6e18d1f6db0f",
+    "web/Motion.tsx": "3240c949fa505203ede5ecadfa77d9fbae89af343bfedd93d52f68cae36a9d74",
+    "web/Panels.tsx": "4e4eb56ee2535a0e98cfb92e6fa081206324bb27dd640068f5b8d77623a77d17",
+    "web/ai.ts": "8cde96cb2d1662f0dde3b1678d40b2ee141170c8915e4a25cc937e9fb52c93c5",
+    "web/brand-logo.svg": "1f3b002d904d984fc5f2aa9b4e2cd1dcb8d6a9b3dd067c8f7b73615041d8129b",
+    "web/bridge.ts": "2873127cea524ad1d891bd11392a303ff0ad6bfdc75609b5248550d680c1be8c",
+    "web/desk.css": "cff3198414509ba9fa9822bdd8ec1794f9250fc7c9543008d96cb0cc9b613bf9",
+    "web/diff.ts": "731b28de4e7ed425e787f9615901fa6bdadab92289a0358b15fbce026f4d2705",
+    "web/index.html": "9c6981ef5916fe068cb23bdc4b35872ab7d4897cb42686166c11f54eed7700ae",
+    "web/ink.css": "e1c9b36f9a5420baf010550a47059af5e6a9d5e9d4da24ba2e25095dd0d91b0f",
+    "web/main.tsx": "6b366c7be368e73f037f17975b10600896c580e87628a5d923a6a5f8c1a212dc",
+    "web/markdown.ts": "d229544dc361ecaf7022a6691f8e64cf53345dfd2a3d4a03d689f7855190583b",
+    "web/model.ts": "18c74ac7e2b46e5b2e1895295180ecf0554e40544a2fe9003fb06737f54dd424",
+    "web/motion.css": "233f9f941490578b3841fd773ededf385813ff34054571af8c962a6ee8a79c09",
+    "web/navigation.css": "9d3366187469addfb9f10f7ad3faafafcf7a891654a1b1e803ac9d033d73dd84",
+    "web/style.css": "df255467446044733eee5fff31fd9a02b68b1344f8aad062cb6a9810909ba340",
+    "web/tree.ts": "81bedee541d45373573bea5d3dd5c68773d848399022ca69b1947ef028d42746",
+    "web/useTreeDrag.tsx": "3197228aa5806835606c0d3dad4ce7d31cb1ae4e4dc176ca69af88dfa0067f6b",
+    "web/workspace.ts": "78a2c5650960e7b7724e515a2f80de31d51ae4a00f27a41f5c5f5d1fe4602c40",
+    "scripts/build-native.sh": "c716df7932716a2202172fd744dfba5329d31dd46cf0b1982a1164b70f0e5d86",
+    "scripts/build-web.mjs": "4a1d64df55672612b2f2cf49aee6cb6a128bf18f6e64d4c5d00ce5bd8601564a",
+    "scripts/license-sources/MIT-standard.txt": "6d7c9e9d7d12c8d3753bdb24417b84819ba4d6c2f025c37948113d86dc81eef9",
+    "scripts/license-sources/ant-design-icons-LICENSE": "5d367fb0a07340571542eb4ee8eb1add62d37b71bad6786a57c2e9a86bf76c70",
+    "scripts/license-sources/fast-deep-equal-3.1.3-LICENSE": "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a",
+    "scripts/license-sources/heroicons-LICENSE": "75523ddd65d9620bea09f84e89d0c373b4205a3708b8a1e9f9598a5438a3e641",
+    "scripts/license-sources/inter-OFL.txt": "4d7d9c95e7d7f2f0ebf76d5e0b344826b74e903a34028ee18ab54bb639e45906",
+    "scripts/license-sources/mantine-7.17.8-LICENSE": "61c765e625bc25d55143f14de7554685c52f21d9e671d3d204304691a163d06a",
+    "scripts/license-sources/material-icons-LICENSE": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+    "scripts/license-sources/npm-provenance.json": "12bc8179c93139b0e19ca42abe12e5f1e543e6fbc32432bccceee155f13ab676",
+    "scripts/license-sources/parcel-runtime-js-2.6.2-LICENSE": "5cfba9d5711264d45a2431a53c79f597cef12720cc7c764db2602daa92d0bd2a",
+    "scripts/license-sources/preact-10.6.4-LICENSE": "b3ca27c284ef966111e4e2275e3b15efe46775089c6516045a30646829710a1c",
+    "scripts/license-sources/react-icons-5.5.0-LICENSE": "a0c1e5484fb4c79e2a683834253864e640e1ca57cb57b807bd5bddb72bbbf74f",
+    "scripts/license-sources/remix-icons-LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "scripts/license-sources/sources.json": "63417a18be083b521b698008adaf2df338a6e7b9503184e84ca37f72351021ee",
+    "scripts/license-sources/swc-helpers-0.4.13-package.json": "92381a3e912a333dc8f15d6e0b9993cabcd5df43b38e27866cc6a79f64530329",
+    "scripts/license-sources/swc-provenance.json": "fdd63d38605b634fb8d63dfb4650efbb9fc249d5a1683fe786b481142f7982e9",
+    "scripts/license-sources/swc-v1.3.18-LICENSE": "769f80b5bcb42ed0af4e4d2fd74e1ac9bf843cb80c5a29219d1ef3544428a6bb",
+    "scripts/license-sources/swc-v1.3.18-define-property.js": "62f087ae2c228fc775f97076cf1ac7cdf53d974315a141547b0045599cccf402",
+    "scripts/license-sources/tabler-icons-LICENSE": "d5a3f948ae5cb95bfc4d2f767ef2bf6a778815b0ddb2d1c48037744cf636518e",
+    "scripts/license-sources/tiptap-2.27.3-LICENSE.md": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9",
+    "scripts/license-sources/upstream-provenance.json": "542bc18ef1e1cc3854648bb39001c77a891ddec68cb0997b89cbb4cdb18ec789",
+    "scripts/license-sources/use-sync-external-store-1.2.2-LICENSE": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85",
+    "scripts/licenses.mjs": "5ef884a195445096395a48c9a4984a2e62a0e4930ac798a5d11ac8e0c5e86d50",
+    "tests/ai.test.ts": "37d62723fdc3dd8e5ba30988f692c62716ba3a69c2b03d7e52ed66d02fa732f5",
+    "tests/article.test.ts": "55b9d93a44d764117a5b2a8e77139ad3fdd175e00d336c7f7f0cc4bd56f22abc",
+    "tests/model.test.ts": "d4fb86b194aab7554fb6242e295964bfcce8432aeba37ec7b2cba37da77b1a87",
+    "tests/trash.test.ts": "370b2d79c2dd8e9ae8f70024dad7f7da14d98a8dbbf77fe5631c89e8275335ed",
+    "tests/tree.test.ts": "77f5d845010337bb060c1f641d51267e3341c75cc309ecd58ad69c9b05164453",
+    "tests/workspace.test.ts": "b42b4d5ca93bcf9b04a5be5856303171629aa8df730b9b36bf62b15918b15219",
+    "tests/writing.test.ts": "2ce78ef1b315b5b8733ff80bef0a44275f4361dc36caedbfc7d80b498442db75",
+    "site/assets/icon.png": "6862d3a91d21b219802502a664add1b6c8433f6b58df2abaafd51d5600a459d2",
+    "site/assets/writing.png": "f8bba89c72e8a21b469230a9e1147f7925844bcb86ec8300fd0248bcc5e99152",
+    "site/help/index.html": "0ac2bcffe55af3434dd3d9302aee7b5d0778d078b18c1806d1fcd8c3ec97b1d8",
+    "site/index.html": "e2bd6ca760d114c6781ce33ff60351a4e14cc89fbc17008c9172d254b74ac712",
+    "site/privacy/index.html": "ddac89cd76f052baeecb395a7d923699a487bc63ec47abf9c2e60531701f3ad3",
+    "site/robots.txt": "fd572e1689b005dfcaf222b35ff9c260f845b797db040a16a73fcd65c7352354",
+    "site/sitemap.xml": "1f76d9f70d836ed3cb4476654879a32ba53b74819c7d9b7de33357cd079af972",
+    "site/style.css": "ff370d55c269cc9feb201a7372eb3e81f81439b031ea3ac822012be78a6d8091",
+    "package.json": "166ea18855e9905dcc4b53416e9e1fd72f4a130d8b72f3aa42349e2a9f11e5d4",
+    "package-lock.json": "0c73d1adfa60b2ccea8eede5cafdc5d777063cd7c3ab81e357294f2327dbe2f4",
+    "tsconfig.json": "8dc742a4f7c62e74850a63c3ef323ba6b36ee0cffed3edd5ad11b40786c39833"
+  }
 }

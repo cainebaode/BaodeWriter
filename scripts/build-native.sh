@@ -7,13 +7,14 @@ WEB_DIST="${WRITER_WEB_DIST:-$WRITER_DIR/build/web}"
 BUILD_DIR="$WRITER_DIR/.build/native"
 OUTPUT_DIR="$WRITER_DIR/dist"
 APP="$OUTPUT_DIR/饱得写作.app"
+APP_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$WRITER_DIR/native/Info.plist")"
 SDK="$(xcrun --sdk macosx --show-sdk-path)"
 
 mkdir -p "$BUILD_DIR" "$OUTPUT_DIR"
-SOURCES=("$WRITER_DIR/native/App.swift" "$WRITER_DIR/native/Store.swift" "$WRITER_DIR/native/NativeTests.swift")
-xcrun swiftc -swift-version 5 -O -parse-as-library -module-cache-path "$BUILD_DIR/ModuleCache" -sdk "$SDK" -target arm64-apple-macos13.0 -framework AppKit -framework WebKit -framework CryptoKit "${SOURCES[@]}" -o "$BUILD_DIR/BaodeWriter-arm64"
+SOURCES=("$WRITER_DIR/native/App.swift" "$WRITER_DIR/native/Store.swift" "$WRITER_DIR/native/AIService.swift" "$WRITER_DIR/native/NativeTests.swift" "$WRITER_DIR/native/NativeEditorTests.swift")
+xcrun swiftc -swift-version 5 -O -parse-as-library -module-cache-path "$BUILD_DIR/ModuleCache" -sdk "$SDK" -target arm64-apple-macos13.0 -framework AppKit -framework WebKit -framework CryptoKit -framework Security "${SOURCES[@]}" -o "$BUILD_DIR/BaodeWriter-arm64"
 "$BUILD_DIR/BaodeWriter-arm64" --self-test
-xcrun swiftc -swift-version 5 -O -parse-as-library -module-cache-path "$BUILD_DIR/ModuleCache" -sdk "$SDK" -target x86_64-apple-macos13.0 -framework AppKit -framework WebKit -framework CryptoKit "${SOURCES[@]}" -o "$BUILD_DIR/BaodeWriter-x86_64"
+xcrun swiftc -swift-version 5 -O -parse-as-library -module-cache-path "$BUILD_DIR/ModuleCache" -sdk "$SDK" -target x86_64-apple-macos13.0 -framework AppKit -framework WebKit -framework CryptoKit -framework Security "${SOURCES[@]}" -o "$BUILD_DIR/BaodeWriter-x86_64"
 
 if [[ ! -f "$WEB_DIST/index.html" ]]; then
   echo "Native code compiled and tested. Build the frontend at $WEB_DIST before packaging." >&2
@@ -56,7 +57,7 @@ if [[ -e "$STAGING/饱得写作.app" ]]; then rm -rf "$STAGING/饱得写作.app"
 cp -R "$APP" "$STAGING/饱得写作.app"
 ln -sfn /Applications "$STAGING/Applications"
 if [[ -f "$WRITER_DIR/README.md" ]]; then cp "$WRITER_DIR/README.md" "$STAGING/使用说明.md"; fi
-hdiutil create -volname "饱得写作" -srcfolder "$STAGING" -format UDZO -ov "$OUTPUT_DIR/BaodeWriter-0.1.0-universal.dmg"
-shasum -a 256 "$OUTPUT_DIR/BaodeWriter-0.1.0-universal.dmg" > "$OUTPUT_DIR/SHA256SUMS.txt"
-du -sh "$APP" "$OUTPUT_DIR/BaodeWriter-0.1.0-universal.dmg"
+hdiutil create -volname "饱得写作" -srcfolder "$STAGING" -format UDZO -ov "$OUTPUT_DIR/BaodeWriter-$APP_VERSION-universal.dmg"
+shasum -a 256 "$OUTPUT_DIR/BaodeWriter-$APP_VERSION-universal.dmg" > "$OUTPUT_DIR/SHA256SUMS.txt"
+du -sh "$APP" "$OUTPUT_DIR/BaodeWriter-$APP_VERSION-universal.dmg"
 echo "Built universal macOS 13+ app and DMG with an ad-hoc signature (not notarized)."

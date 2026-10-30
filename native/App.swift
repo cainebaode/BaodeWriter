@@ -2,6 +2,27 @@ import AppKit
 import WebKit
 import UniformTypeIdentifiers
 
+final class ChromeButton: NSButton {
+    private var hovered = false
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach { removeTrackingArea($0) }
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { hovered = true; needsDisplay = true }
+    override func mouseExited(with event: NSEvent) { hovered = false; needsDisplay = true }
+    override func draw(_ dirtyRect: NSRect) {
+        let selected = state == .on
+        if selected || hovered || isHighlighted {
+            (selected ? NSColor(srgbRed: 234.0/255, green: 219.0/255, blue: 209.0/255, alpha: 1) : NSColor(srgbRed: 222.0/255, green: 220.0/255, blue: 213.0/255, alpha: 1)).setFill()
+            NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8).fill()
+        }
+        let tint = selected ? NSColor(srgbRed: 128.0/255, green: 92.0/255, blue: 73.0/255, alpha: 1) : NSColor(srgbRed: 105.0/255, green: 112.0/255, blue: 109.0/255, alpha: 1)
+        if contentTintColor != tint { contentTintColor = tint }
+        super.draw(dirtyRect)
+    }
+}
+
 final class SameOriginSession: NSObject, URLSessionTaskDelegate {
     let origin: URL
     init(origin: URL) { self.origin = origin }
@@ -38,6 +59,7 @@ final class LocalScheme: NSObject, WKURLSchemeHandler {
             case "woff2": mime = "font/woff2"
             case "woff": mime = "font/woff"
             case "ttf": mime = "font/ttf"
+            case "svg": mime = "image/svg+xml"
             default: mime = WriterStore.mime(for: file)
             }
             urlSchemeTask.didReceive(URLResponse(url: url, mimeType: mime, expectedContentLength: data.count, textEncodingName: mime.hasPrefix("text/") ? "utf-8" : nil))
@@ -49,9 +71,10 @@ final class LocalScheme: NSObject, WKURLSchemeHandler {
 }
 
 @MainActor
-final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandlerWithReply, WKNavigationDelegate, WKUIDelegate {
+final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandlerWithReply, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegate, NSSearchFieldDelegate, NSMenuItemValidation {
     let store: WriterStore
     let webRoot: URL
+    lazy var ai = AIService(root: store.root)
     var window: NSWindow!
     var webView: WKWebView!
     var loginWindow: NSWindow?
@@ -63,7 +86,19 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     var startupError: Error?
     var bridgeTest = false
     var bridgeNetworkTest = false
+    var editorTest = false
+    var workspaceTest = false
+    var trashTest = false
+    var testEvidence: URL?
     var websiteDataStore = WKWebsiteDataStore.default()
+    let chromeSearch = NSSearchField()
+    let chromeSearchButton = ChromeButton(title: "搜索", target: nil, action: nil)
+    let chromeFocus = ChromeButton(title: "专注", target: nil, action: nil)
+    let chromeControls = NSView(frame: NSRect(x: 0, y: 0, width: 500, height: 28))
+    let chromeSearchWrap = NSView(frame: NSRect(x: 360, y: 0, width: 0, height: 28))
+    var chromeSearchOpen = false
+    var chromeHasNote = false
+    var chromeBusy = false
 
     init(store: WriterStore, webRoot: URL) { self.store = store; self.webRoot = webRoot }
 
@@ -79,17 +114,18 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.setValue(false, forKey: "drawsBackground")
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1240, height: 850), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: editorTest ? 1480 : 1240, height: 850), styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = "饱得写作"
-        window.subtitle = "本地记录"
+        window.titleVisibility = .hidden
         window.minSize = NSSize(width: 920, height: 650)
-        window.backgroundColor = NSColor(calibratedRed: 0.035, green: 0.047, blue: 0.063, alpha: 1)
-        window.appearance = NSAppearance(named: .darkAqua)
+        window.backgroundColor = NSColor(srgbRed: 232.0/255, green: 231.0/255, blue: 227.0/255, alpha: 1)
+        window.appearance = NSAppearance(named: .aqua)
         window.titlebarAppearsTransparent = true
         window.titlebarSeparatorStyle = .none
         window.contentView = webView
+        makeToolbar()
         window.delegate = self
-        if !bridgeTest { window.setFrameAutosaveName("BaodeWriterMainWindow") }
+        if !bridgeTest && !editorTest { window.setFrameAutosaveName("BaodeWriterMainWindow") }
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -98,8 +134,8 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
             return
         }
         webView.load(URLRequest(url: URL(string: "writer-app://local/index.html")!))
-        if bridgeTest {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
+        if bridgeTest || editorTest {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 90) {
                 fputs("WEBKIT TEST FAILED: timed out waiting for native/WebKit round trip\n", stderr)
                 exit(1)
             }
@@ -119,7 +155,15 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
         for (title, action, key) in [("撤销", "undo:", "z"), ("重做", "redo:", "Z"), ("剪切", "cut:", "x"), ("复制", "copy:", "c"), ("粘贴", "paste:", "v"), ("全选", "selectAll:", "a")] {
             editMenu.addItem(withTitle: title, action: Selector(action), keyEquivalent: key)
         }
+        editMenu.addItem(.separator())
+        let find = NSMenuItem(title: "搜索文稿", action: #selector(focusSearch), keyEquivalent: "f"); find.target = self; editMenu.addItem(find)
         let edit = NSMenuItem(); edit.submenu = editMenu; bar.addItem(edit)
+        let documentMenu = NSMenu(title: "文稿")
+        for (title, command) in [("文稿设置", "documentSettings"), ("切换阅读预览", "togglePreview"), ("移动到…", "moveDocument"), ("移到废纸篓…", "trashDocument")] {
+            let item = NSMenuItem(title: title, action: #selector(documentCommand(_:)), keyEquivalent: "")
+            item.target = self; item.representedObject = command; documentMenu.addItem(item)
+        }
+        let documentItem = NSMenuItem(); documentItem.submenu = documentMenu; bar.addItem(documentItem)
         let windowMenu = NSMenu(title: "窗口")
         windowMenu.addItem(withTitle: "最小化", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m")
         windowMenu.addItem(withTitle: "关闭", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
@@ -127,6 +171,85 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
         NSApp.mainMenu = bar
         NSApp.windowsMenu = windowMenu
     }
+
+    private func makeToolbar() {
+        let field = chromeSearch
+        field.placeholderString = "搜索文稿"; field.controlSize = .small
+        field.font = .systemFont(ofSize: 12); field.delegate = self
+        field.sendsSearchStringImmediately = true; field.isEnabled = false
+        field.isBezeled = false; field.isBordered = false; field.drawsBackground = false; field.focusRingType = .none
+        (field.cell as? NSSearchFieldCell)?.searchButtonCell = nil
+        field.textColor = NSColor(srgbRed: 100.0/255, green: 107.0/255, blue: 107.0/255, alpha: 1)
+        field.placeholderAttributedString = NSAttributedString(string: "搜索文稿", attributes: [.foregroundColor: NSColor(srgbRed: 139.0/255, green: 146.0/255, blue: 144.0/255, alpha: 1), .font: NSFont.systemFont(ofSize: 12)])
+        chromeSearchWrap.wantsLayer = true
+        chromeSearchWrap.layer?.backgroundColor = NSColor(srgbRed: 246.0/255, green: 245.0/255, blue: 240.0/255, alpha: 1).cgColor
+        chromeSearchWrap.layer?.cornerRadius = 8; chromeSearchWrap.layer?.masksToBounds = true
+        chromeSearchWrap.alphaValue = 0; chromeSearchWrap.isHidden = true
+        field.translatesAutoresizingMaskIntoConstraints = false; chromeSearchWrap.addSubview(field)
+        NSLayoutConstraint.activate([field.widthAnchor.constraint(equalToConstant: 344), field.heightAnchor.constraint(equalToConstant: 22), field.trailingAnchor.constraint(equalTo: chromeSearchWrap.trailingAnchor, constant: -8), field.centerYAnchor.constraint(equalTo: chromeSearchWrap.centerYAnchor)])
+        chromeControls.addSubview(chromeSearchWrap)
+        for (button, x) in [(chromeSearchButton, 366.0), (chromeFocus, 436.0)] {
+            button.frame = NSRect(x: x, y: 0, width: 64, height: 28)
+            button.isBordered = false; button.imagePosition = .imageLeading
+            button.font = .systemFont(ofSize: 12); button.controlSize = .small
+            button.setButtonType(.momentaryChange); button.isEnabled = false; button.target = self
+            chromeControls.addSubview(button)
+        }
+        chromeSearchButton.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
+        chromeSearchButton.action = #selector(toggleChromeSearch); chromeSearchButton.toolTip = "搜索文稿 ⌘F"
+        chromeFocus.image = NSImage(systemSymbolName: "viewfinder", accessibilityDescription: "专注模式")
+        chromeFocus.setButtonType(.toggle); chromeFocus.target = self; chromeFocus.action = #selector(toggleChromeFocus)
+        chromeFocus.setAccessibilityLabel("专注模式")
+        NSLayoutConstraint.activate([chromeControls.widthAnchor.constraint(equalToConstant: 500), chromeControls.heightAnchor.constraint(equalToConstant: 28)])
+        let toolbar = NSToolbar(identifier: "WriterTopbar")
+        toolbar.delegate = self; toolbar.displayMode = .iconOnly; toolbar.allowsUserCustomization = false
+        toolbar.showsBaselineSeparator = false
+        window.toolbarStyle = .unifiedCompact; window.toolbar = toolbar
+        window.titlebarAppearsTransparent = true; window.titlebarSeparatorStyle = .none
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [NSToolbarItem.Identifier("writer.controls"), .flexibleSpace] }
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [.flexibleSpace, NSToolbarItem.Identifier("writer.controls")] }
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        guard identifier.rawValue == "writer.controls" else { return nil }
+        let item = NSToolbarItem(itemIdentifier: identifier); item.label = "搜索与专注"; item.view = chromeControls; item.isBordered = false; return item
+    }
+    private func dispatchChrome(_ action: String, value: String = "") {
+        guard webView.url?.scheme == "writer-app", webView.url?.host == "local" else { return }
+        Task { try? await webView.callAsyncJavaScript("window.dispatchEvent(new CustomEvent('writer-chrome',{detail:{action,value}}));", arguments: ["action":action,"value":value], in: nil, contentWorld: .page) }
+    }
+    @objc private func focusSearch() { setChromeSearchOpen(true) }
+    @objc private func toggleChromeSearch() { setChromeSearchOpen(!chromeSearchOpen) }
+    private func setChromeSearchOpen(_ open: Bool) {
+        chromeSearchOpen = open; chromeSearchWrap.isHidden = false
+        chromeSearchButton.state = open || !chromeSearch.stringValue.isEmpty ? .on : .off
+        let frame = NSRect(x: open ? 0 : 360, y: 0, width: open ? 360 : 0, height: 28)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.2
+            chromeSearchWrap.animator().frame = frame; chromeSearchWrap.animator().alphaValue = open ? 1 : 0
+        } completionHandler: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                if !self.chromeSearchOpen { self.chromeSearchWrap.isHidden = true }
+            }
+        }
+        window.makeFirstResponder(open ? chromeSearch : webView)
+    }
+    @objc private func toggleChromeFocus() { if chromeSearchOpen { setChromeSearchOpen(false) }; dispatchChrome("toggleFocus") }
+    @objc private func documentCommand(_ sender: NSMenuItem) { if let command = sender.representedObject as? String { dispatchChrome(command) } }
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        menuItem.action == #selector(documentCommand(_:)) ? chromeHasNote && !chromeBusy : true
+    }
+    func controlTextDidBeginEditing(_ notification: Notification) { dispatchChrome("searchOpen") }
+    func controlTextDidChange(_ notification: Notification) { dispatchChrome("search", value: chromeSearch.stringValue) }
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        guard commandSelector == #selector(NSResponder.cancelOperation(_:)) else { return false }
+        setChromeSearchOpen(false); return true
+    }
+    private var toolbarInset: Double { window.styleMask.contains(.fullScreen) ? 0 : max(0, webView.bounds.height-window.contentLayoutRect.height) }
+    func windowDidResize(_ notification: Notification) { dispatchChrome("windowMetrics", value: String(toolbarInset)) }
+    func windowDidEnterFullScreen(_ notification: Notification) { dispatchChrome("windowMetrics", value: String(toolbarInset)) }
+    func windowDidExitFullScreen(_ notification: Notification) { dispatchChrome("windowMetrics", value: String(toolbarInset)) }
 
     @objc private func showAbout() {
         let alert = NSAlert()
@@ -168,6 +291,21 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     private func perform(action: String, args: [String: Any]) async throws -> [String: Any] {
         if bridgeTest { fputs("WebKit test bridge: \(action)\n", stderr) }
         switch action {
+        case "windowState":
+            chromeHasNote = args["hasNote"] as? Bool == true; chromeBusy = args["busy"] as? Bool == true
+            let ready = args["ready"] as? Bool == true, focused = args["focus"] as? Bool == true
+            chromeSearch.isEnabled = ready; chromeSearchButton.isEnabled = ready; chromeFocus.isEnabled = ready
+            if let query = args["query"] as? String, query != chromeSearch.stringValue { chromeSearch.stringValue = query }
+            chromeSearchButton.state = chromeSearchOpen || !chromeSearch.stringValue.isEmpty ? .on : .off
+            chromeFocus.state = focused ? .on : .off; chromeFocus.toolTip = focused ? "退出专注" : "专注模式"
+            return ["ok": true, "toolbarInset": toolbarInset]
+        case "aiLoad": return try ai.load()
+        case "aiSave": return try ai.save(args)
+        case "aiRemove": return try ai.remove(try string(args, "id"))
+        case "aiDefault": return try ai.setDefault(try string(args, "id"))
+        case "aiRequest": return try await ai.request(args)
+        case "aiTest": return try await ai.request(args, test: true)
+        case "aiCancel": ai.cancel(try string(args, "requestID")); return ["ok": true]
         case "load": return try await storage { try self.store.load() }
         case "save":
             guard let library = args["library"] as? [String: Any] else { throw WriterError("文稿库格式无效。") }
@@ -323,6 +461,38 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if editorTest, webView === self.webView {
+            Task {
+                do {
+                    let result = try await webView.callAsyncJavaScript(trashTest ? NativeEditorTests.trashScript : workspaceTest ? NativeEditorTests.workspaceScript : NativeEditorTests.script, arguments: ["site":store.siteURL.absoluteString], in: nil, contentWorld: .page)
+                    print("PASS: Native editor \(trashTest ? "trash" : workspaceTest ? "workspace" : "AI") scenarios: \(result ?? "none")")
+                    await saveTestScreenshot()
+                    if workspaceTest {
+                        window.setContentSize(NSSize(width: 1000, height: 850))
+                        _ = try await webView.callAsyncJavaScript(NativeEditorTests.narrowWorkspaceScript, arguments: [:], in: nil, contentWorld: .page)
+                        await saveTestScreenshot(suffix: "-narrow")
+                        print("PASS: Two editable papers and fixed-width tabs fit a 1000-point window.")
+                        window.setContentSize(NSSize(width: 1380, height: 900))
+                        let navigation = try await webView.callAsyncJavaScript(NativeEditorTests.navigationScript, arguments: [:], in: nil, contentWorld: .page)
+                        await saveTestScreenshot(suffix: "-navigation")
+                        print("PASS: \(navigation ?? "document tree navigation")")
+
+                    }
+                    if !workspaceTest && !trashTest {
+                        window.setContentSize(NSSize(width: 1000, height: 850))
+                        _ = try await webView.callAsyncJavaScript(NativeEditorTests.narrowAIScript, arguments: [:], in: nil, contentWorld: .page)
+                        await saveTestScreenshot(suffix: "-narrow")
+                        print("PASS: Independent review and assistant fit a 1000-point window.")
+                    }
+                    NSApp.terminate(nil)
+                } catch {
+                    await saveTestScreenshot()
+                    fputs("EDITOR TEST FAILED: \(error.localizedDescription) \((error as NSError).userInfo)\n", stderr)
+                    exit(1)
+                }
+            }
+            return
+        }
         if bridgeTest, webView === self.webView {
             fputs("WebKit test page loaded\n", stderr)
             Task {
@@ -337,6 +507,16 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
             return
         }
         finishLoginIfReady(webView)
+    }
+
+    private func saveTestScreenshot(suffix: String = "") async {
+        guard let evidence = testEvidence else { return }
+        let url = suffix.isEmpty ? evidence : evidence.deletingLastPathComponent().appendingPathComponent(evidence.deletingPathExtension().lastPathComponent + suffix + ".png")
+        do {
+            let image = try await webView.takeSnapshot(configuration: nil)
+            guard let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff), let png = bitmap.representation(using: .png, properties: [:]) else { return }
+            try png.write(to: url)
+        } catch { fputs("Could not save editor test screenshot.\n", stderr) }
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -356,6 +536,13 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
         let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = parameters.allowsMultipleSelection
         panel.beginSheetModal(for: webView.window ?? window) { response in completionHandler(response == .OK ? panel.urls : nil) }
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        guard webView === self.webView, frame.request.url?.scheme == "writer-app" else { completionHandler(false); return }
+        let alert = NSAlert(); alert.messageText = message
+        alert.addButton(withTitle: "确认"); alert.addButton(withTitle: "取消")
+        alert.beginSheetModal(for: window) { response in completionHandler(response == .alertFirstButtonReturn) }
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
@@ -401,6 +588,7 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
     func applicationWillTerminate(_ notification: Notification) {
+        if editorTest { try? FileManager.default.removeItem(at: store.root.deletingLastPathComponent()) }
         if bridgeTest {
             do {
                 let library = try store.load()["library"] as? [String: Any]
@@ -419,17 +607,25 @@ enum Entry {
         func option(_ name: String) -> String? { args.firstIndex(of: name).flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } }
         do {
             if args.contains("--self-test") { try NativeTests.run(); return }
-            let bridgeTestRoot = args.contains("--self-test-webkit") || args.contains("--self-test-network") ? try NativeTests.makeBridgeFixture() : nil
+            let workspaceTest = args.contains("--self-test-workspace")
+            let trashTest = args.contains("--self-test-trash")
+            let editorTest = args.contains("--self-test-editor") || workspaceTest || trashTest
+            let bridgeTestRoot = args.contains("--self-test-webkit") || args.contains("--self-test-network") || editorTest ? try NativeTests.makeBridgeFixture() : nil
             let defaultRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("BaodeWriter", isDirectory: true)
             let root = bridgeTestRoot?.appendingPathComponent("data") ?? option("--data-dir").map { URL(fileURLWithPath: $0, isDirectory: true) } ?? defaultRoot
-            let webRoot = bridgeTestRoot?.appendingPathComponent("web") ?? option("--web-root").map { URL(fileURLWithPath: $0, isDirectory: true) } ?? Bundle.main.resourceURL!.appendingPathComponent("Web", isDirectory: true)
+            let webRoot = (editorTest ? nil : bridgeTestRoot?.appendingPathComponent("web")) ?? option("--web-root").map { URL(fileURLWithPath: $0, isDirectory: true) } ?? Bundle.main.resourceURL!.appendingPathComponent("Web", isDirectory: true)
             let store = try WriterStore(root: root, siteOverride: option("--site"))
-            if args.contains("--self-test-network"), !(store.siteURL.scheme == "http" && store.siteURL.host == "127.0.0.1") { throw WriterError("网络自测仅允许显式 --site http://127.0.0.1:<测试端口>。") }
+            if args.contains("--self-test-network") || editorTest, !(store.siteURL.scheme == "http" && store.siteURL.host == "127.0.0.1") { throw WriterError("网络自测仅允许显式 --site http://127.0.0.1:<测试端口>。") }
+            if editorTest { try NativeEditorTests.seed(store) }
             let libraryLock = try LibraryLock(root: root)
             let app = NSApplication.shared
             let delegate = WriterApp(store: store, webRoot: webRoot)
-            delegate.bridgeTest = bridgeTestRoot != nil
+            delegate.bridgeTest = bridgeTestRoot != nil && !editorTest
             delegate.bridgeNetworkTest = args.contains("--self-test-network")
+            delegate.editorTest = editorTest
+            delegate.workspaceTest = workspaceTest
+            delegate.trashTest = trashTest
+            delegate.testEvidence = option("--evidence").map { URL(fileURLWithPath: $0) }
             if bridgeTestRoot != nil { delegate.websiteDataStore = .nonPersistent() }
             app.delegate = delegate; app.setActivationPolicy(.regular)
             withExtendedLifetime((delegate, libraryLock)) { app.run() }

@@ -1,0 +1,63 @@
+:root{--motion-ease:cubic-bezier(.22,.8,.22,1);--motion-panel:280ms;--motion-popup:160ms;--motion-dialog:200ms}
+.desk-app{--dock-motion:var(--motion-panel) var(--motion-ease)}
+
+/* A surface stays mounted and non-interactive for the whole exit. */
+.desk-app .sidebar{opacity:0;transform:translateX(-16px);transition:opacity var(--motion-panel) var(--motion-ease),transform var(--dock-motion),box-shadow var(--dock-motion)}
+.desk-app .sidebar[data-open=true]{opacity:1;transform:translateX(0)}
+.desk-app .navigation-backdrop.visible{pointer-events:none}
+.desk-app .navigation-backdrop.blocking{pointer-events:auto}
+.desk-app .outline-panel{animation:none;transition:width var(--dock-motion),padding var(--dock-motion),opacity var(--motion-panel) var(--motion-ease),transform var(--dock-motion)}
+.desk-app .outline-panel:not([hidden]){display:flex}
+.desk-app .outline-panel[data-open=false]{padding-inline:0;opacity:0;transform:translateX(-12px);pointer-events:none}
+.desk-app .outline-panel .outline-contents{opacity:1;transform:none;transition:none}
+.desk-app .outline-panel[hidden],.desk-app .aux-slot[hidden]{display:none!important}
+.writing-surface>.resize-handle{transition:width var(--motion-panel) var(--motion-ease)}
+.writing-surface>.resize-handle.is-hidden{width:0;pointer-events:none}
+.outline-backdrop{position:absolute;inset:0;z-index:40;opacity:0;pointer-events:none;background:#26342408;transition:opacity var(--motion-panel) var(--motion-ease)}
+.outline-backdrop.visible{opacity:1;pointer-events:auto}
+.desk-app .document-panes{isolation:isolate}
+
+.aux-slot{display:flex;flex-shrink:0;min-width:0;min-height:0;overflow:hidden;transition:width var(--motion-panel) var(--motion-ease)}
+.aux-inner{display:flex;flex-shrink:0;min-height:0;height:100%;opacity:0;transform:translateX(14px);transition:opacity var(--motion-panel) var(--motion-ease),transform var(--motion-panel) var(--motion-ease)}
+.aux-slot[data-open=true]>.aux-inner{opacity:1;transform:translateX(0)}
+.desk-app .aux-inner>.settings{display:block;position:relative;inset:auto;animation:none}
+.desk-app .aux-inner>.ai-panel{display:flex}
+.desk-app .aux-inner>.resize-handle{display:flex;position:relative;right:auto;height:auto}
+.resizing .aux-slot,.resizing .desk-app .outline-panel,.resizing .writing-surface>.resize-handle{transition:none}
+@media(max-width:1100px){.desk-app .settings-slot{position:absolute;inset:0 0 0 auto;z-index:60}}
+
+.presence{display:contents}
+.modal-presence>.overlay{transition:opacity var(--motion-dialog) var(--motion-ease)}
+.modal-presence .dialog{transition:transform var(--motion-dialog) var(--motion-ease);animation:dialog-enter var(--motion-popup) var(--motion-ease)}
+.modal-presence[data-open=false]>.overlay{opacity:0}
+.modal-presence[data-open=false] .dialog{transform:translateY(12px)}
+.review-presence>.ai-review-space{transition:opacity var(--motion-dialog) var(--motion-ease),transform var(--motion-dialog) var(--motion-ease)}
+.review-presence[data-open=false]>.ai-review-space{opacity:0;transform:translateY(10px)}
+.desk-app.focused #ai-review-space:not(:empty){display:block}
+
+.menu-disclosure .disclosure-body,.menu-disclosure .disclosure-body>div{display:contents}
+.menu-disclosure .disclosure-body>div>*,.popover-presence>.tree-menu,.popover-presence>.library-tag-menu{transform-origin:top;transition:opacity var(--motion-popup) var(--motion-ease),transform var(--motion-popup) var(--motion-ease)}
+.menu-disclosure[data-open=false] .disclosure-body>div>*,.popover-presence[data-open=false]>.tree-menu,.popover-presence[data-open=false]>.library-tag-menu{opacity:0;transform:translateY(-6px);pointer-events:none}
+.document-menu[data-open=false]>summary{background:transparent}
+.motion-collapse,.section-disclosure .disclosure-body{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows var(--motion-panel) var(--motion-ease),opacity var(--motion-panel) var(--motion-ease)}
+.motion-collapse[data-open=true],.section-disclosure[data-open=true] .disclosure-body{grid-template-rows:1fr;opacity:1}
+.motion-collapse>div,.section-disclosure .disclosure-body>div{min-height:0;overflow:hidden}
+.desk-app .tree-fold .icon{transition:transform var(--dock-motion)}
+.section-disclosure>summary{list-style:none}
+.section-disclosure>summary::-webkit-details-marker{display:none}
+.section-disclosure>summary:before{content:'›';display:inline-block;margin-right:6px;transition:transform var(--motion-panel) var(--motion-ease)}
+.section-disclosure[data-open=true]>summary:before{transform:rotate(90deg)}
+.ai-brief textarea{width:100%;box-sizing:border-box;margin-top:7px;resize:vertical;min-height:76px;max-height:180px;padding:8px;font-size:11px;line-height:1.7;background:#fffefa;border:1px solid #d7e1cb;border-radius:7px;color:#596e49}
+.ai-brief .disclosure-body small{display:block;font-size:9px;line-height:1.6;margin-top:4px}
+
+.desk-rail{min-width:0;overflow:hidden;transition:flex-basis var(--motion-panel) var(--motion-ease),margin-right var(--motion-panel) var(--motion-ease),opacity var(--motion-panel) var(--motion-ease),transform var(--motion-panel) var(--motion-ease)}
+.desk-app.focused .desk-rail{display:flex;flex-basis:0;margin-right:calc(-1 * var(--desk-gap));opacity:0;transform:translateX(-12px);pointer-events:none}
+.desk-app .paper-inner{transition:max-width var(--dock-motion)}
+.desk-app .document-tab{transition:background var(--motion-popup),color var(--motion-popup);animation:tab-enter var(--motion-popup) var(--motion-ease)}
+@keyframes tab-enter{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+@keyframes dialog-enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+@media(prefers-reduced-motion:reduce){
+ .desk-app{--motion-panel:0ms;--motion-popup:0ms;--motion-dialog:0ms}
+ .presence>*,.presence .dialog,.motion-disclosure .disclosure-body>div>*,.motion-collapse,.section-disclosure .disclosure-body,.desk-rail,.desk-app .document-tab{transition:none!important;animation:none!important}
+}
