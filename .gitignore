@@ -8,8 +8,6 @@ dist/
 
 # Internal plans, verification evidence, and publishing operations
 /docs/
-/evidence/
-/publishing/
 /.local-backups/
 
 # Local runtime data and secrets

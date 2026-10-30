@@ -1,5 +1,7 @@
 # 原生外壳与构建
 
+本层属于应用核心产出，负责窗口、存储、桥接、网络和恢复能力。总体背景见[应用工程](../README.md)，编辑交互见[前端地图](../web/README.md)；下文是本层架构与验证契约。
+
 macOS 13+，AppKit + 系统 WebKit。无 Electron、远程页面桥接、网站密码存储或后台自动发布。AI 密钥使用系统钥匙串。`Info.plist` 固定应用标识为 `life.baode.writer`。
 
 ## 窗口与顶部工具栏
@@ -54,7 +56,7 @@ AI 使用独立临时网络会话，不携带网站 cookie 或 Origin，不接�
 
 ## 构建与验证
 
-以下命令均在本项目根目录执行。先构建 `build/web` 并生成 `build/licenses`，再运行：
+以下命令均在应用工程 `app/` 目录执行。先构建 `build/web` 并生成 `build/licenses`，再运行：
 
 ```sh
 bash scripts/build-native.sh
@@ -70,7 +72,7 @@ bash scripts/build-native.sh
 dist/饱得写作.app/Contents/MacOS/BaodeWriter \
   --data-dir /tmp/baode-writer-manual-test \
   --site http://127.0.0.1:3210 \
-  --web-root /absolute/path/to/BaodeWriter/build/web
+  --web-root /absolute/path/to/BaodeWriter/app/build/web
 ```
 
 `--self-test` 验证临时目录中的存储、重开、备份恢复、损坏恢复、图片和访问边界；`--self-test-webkit` 启动真实 WebKit 验证页面、桥接、图片、退出保存，然后清理临时数据。后者需要正常的 macOS 窗口服务，受限执行沙箱可能无法启动。两项自测不访问正式网站或真实文稿库；它们不能代替服务器联调、完整界面验收或公证验证。
@@ -82,9 +84,9 @@ AI 与真实编辑器联调使用同一个本机模拟服务，覆盖七种配�
 ```sh
 python3 native/NetworkFixture.py
 .build/native/BaodeWriter-arm64 --self-test-network --site http://127.0.0.1:<端口>
-.build/native/BaodeWriter-arm64 --self-test-editor --site http://127.0.0.1:<端口> --web-root /absolute/path/to/BaodeWriter/build/web --evidence /absolute/path/to/editor.png
-.build/native/BaodeWriter-arm64 --self-test-workspace --site http://127.0.0.1:<端口> --web-root /absolute/path/to/BaodeWriter/build/web --evidence /absolute/path/to/workspace.png
-.build/native/BaodeWriter-arm64 --self-test-trash --site http://127.0.0.1:<端口> --web-root /absolute/path/to/BaodeWriter/build/web --evidence /absolute/path/to/trash.png
+.build/native/BaodeWriter-arm64 --self-test-editor --site http://127.0.0.1:<端口> --web-root /absolute/path/to/BaodeWriter/app/build/web --evidence /absolute/path/to/editor.png
+.build/native/BaodeWriter-arm64 --self-test-workspace --site http://127.0.0.1:<端口> --web-root /absolute/path/to/BaodeWriter/app/build/web --evidence /absolute/path/to/workspace.png
+.build/native/BaodeWriter-arm64 --self-test-trash --site http://127.0.0.1:<端口> --web-root /absolute/path/to/BaodeWriter/app/build/web --evidence /absolute/path/to/trash.png
 ```
 
 上述测试使用独立临时文稿库、非持久网站会话；AI 测试仅使用测试专用钥匙串项目。`--self-test-workspace` 检查文稿树父子移动、新建子文稿、层级搜索、删除恢复、标签、双栏编辑、各篇保存和配套面板的对应关系，另生成 1000 点宽窗口截图。`--self-test-trash` 验证空白文稿删除、恢复、取消、彻底删除、批量删除和分栏中删除一篇。正常完成后清理测试数据；失败时保留诊断信息。真实 AI 服务需用户在应用内配置其已开通模型后验证。
