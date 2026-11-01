@@ -39,6 +39,15 @@ final class SameOriginSession: NSObject, URLSessionTaskDelegate {
     }
 }
 
+func publicSourceURL(_ value: String) throws -> URL {
+    guard let url = URL(string: value), url.scheme?.lowercased() == "https",
+          let host = url.host?.lowercased(), host.contains("."), url.user == nil, url.password == nil,
+          !host.hasSuffix(".local"), !host.hasSuffix(".localhost"), !host.hasSuffix(".internal"),
+          !host.allSatisfy({ $0.isNumber || $0 == "." || $0 == ":" }), !host.contains(":"),
+          url.port == nil || url.port == 443 else { throw WriterError("请输入公开文章的 HTTPS 地址；也可直接粘贴正文。") }
+    return url
+}
+
 final class LocalScheme: NSObject, WKURLSchemeHandler {
     let webRoot: URL
     let store: WriterStore
@@ -96,6 +105,7 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     var trashTest = false
     var libraryTest = false
     var aiConfigurationsTest = false
+    var referencesTest = false
     var testEvidence: URL?
     var websiteDataStore = WKWebsiteDataStore.default()
     let chromeSearchButton = ChromeButton(title: "搜索文稿", target: nil, action: nil)
@@ -315,6 +325,21 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
             let (data, response) = try await fetch(url: url)
             guard (200...299).contains(response.statusCode), let mime = response.mimeType, mime.hasPrefix("image/") else { throw WriterError("网站图片下载失败（\(response.statusCode)）。") }
             return try await storage { try self.store.storeImage(data: data, mime: mime, name: url.lastPathComponent) }
+        case "fetchSource", "fetchSourceImage":
+            let url = try publicSourceURL(try string(args, "url"))
+            let configuration = URLSessionConfiguration.ephemeral
+            configuration.httpShouldSetCookies = false; configuration.httpCookieStorage = nil; configuration.urlCache = nil
+            let session = URLSession(configuration: configuration, delegate: SameOriginSession(origin: url), delegateQueue: nil)
+            defer { session.invalidateAndCancel() }
+            var request = URLRequest(url: url); request.timeoutInterval = 30
+            let (data, raw) = try await session.data(for: request)
+            guard let response = raw as? HTTPURLResponse, (200...299).contains(response.statusCode), data.count <= 25_000_000 else { throw WriterError("无法完整读取该资料，请打开文章后复制正文粘贴。") }
+            if action == "fetchSourceImage" {
+                guard let mime = response.mimeType, mime.hasPrefix("image/") else { throw WriterError("图片暂时无法收存，原链接仍保留。") }
+                return try await storage { try self.store.storeImage(data: data, mime: mime, name: url.lastPathComponent) }
+            }
+            guard data.count <= 8_000_000, ["text/html", "text/plain", "text/markdown", "application/xhtml+xml"].contains(response.mimeType ?? ""), let content = String(data: data, encoding: .utf8) else { throw WriterError("文章格式无法直接读取，请复制正文或导入 Markdown。") }
+            return ["content":content, "mime":response.mimeType ?? "text/html", "url":url.absoluteString]
         case "request":
             let path = try string(args, "path"), method = (try string(args, "method")).uppercased()
             guard ["GET", "POST", "PUT", "PATCH"].contains(method) else { throw WriterError("不支持该请求方式。") }
@@ -454,9 +479,15 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
         if editorTest, webView === self.webView {
             Task {
                 do {
-                    let result = try await webView.callAsyncJavaScript(aiConfigurationsTest ? NativeEditorTests.aiConfigurationsScript : libraryTest ? NativeEditorTests.libraryScript : trashTest ? NativeEditorTests.trashScript : workspaceTest ? NativeEditorTests.workspaceScript : NativeEditorTests.script, arguments: ["site":store.siteURL.absoluteString], in: nil, contentWorld: .page)
-                    print("PASS: Native editor \(aiConfigurationsTest ? "AI configurations" : libraryTest ? "library" : trashTest ? "trash" : workspaceTest ? "workspace" : "AI") scenarios: \(result ?? "none")")
+                    let result = try await webView.callAsyncJavaScript(referencesTest ? NativeEditorTests.referencesScript : aiConfigurationsTest ? NativeEditorTests.aiConfigurationsScript : libraryTest ? NativeEditorTests.libraryScript : trashTest ? NativeEditorTests.trashScript : workspaceTest ? NativeEditorTests.workspaceScript : NativeEditorTests.script, arguments: ["site":store.siteURL.absoluteString], in: nil, contentWorld: .page)
+                    print("PASS: Native editor \(referencesTest ? "references" : aiConfigurationsTest ? "AI configurations" : libraryTest ? "library" : trashTest ? "trash" : workspaceTest ? "workspace" : "AI") scenarios: \(result ?? "none")")
                     await saveTestScreenshot()
+                    if referencesTest {
+                        window.setContentSize(NSSize(width: 850, height: 820))
+                        let narrow = try await webView.callAsyncJavaScript(NativeEditorTests.narrowReferencesScript, arguments: [:], in: nil, contentWorld: .page)
+                        print("PASS: Reference drawer: \(narrow ?? "")")
+                        await saveTestScreenshot(suffix: "-narrow")
+                    }
                     if aiConfigurationsTest {
                         _ = try await webView.callAsyncJavaScript("document.querySelector('[aria-label=\"关闭 AI 设置\"]')?.click(); await new Promise(resolve=>setTimeout(resolve,250)); return true;", arguments: [:], in: nil, contentWorld: .page)
                         await saveTestScreenshot(suffix: "-assistant")
@@ -482,7 +513,7 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
                         print("PASS: \(navigation ?? "document tree navigation")")
 
                     }
-                    if !workspaceTest && !trashTest && !libraryTest && !aiConfigurationsTest {
+                    if !workspaceTest && !trashTest && !libraryTest && !aiConfigurationsTest && !referencesTest {
                         window.setContentSize(NSSize(width: 1000, height: 850))
                         _ = try await webView.callAsyncJavaScript(NativeEditorTests.narrowAIScript, arguments: [:], in: nil, contentWorld: .page)
                         await saveTestScreenshot(suffix: "-narrow")
@@ -624,8 +655,9 @@ enum Entry {
             let workspaceTest = args.contains("--self-test-workspace")
             let libraryTest = args.contains("--self-test-library")
             let aiConfigurationsTest = args.contains("--self-test-ai-configurations")
+            let referencesTest = args.contains("--self-test-references")
             let trashTest = args.contains("--self-test-trash")
-            let editorTest = args.contains("--self-test-editor") || workspaceTest || trashTest || libraryTest || aiConfigurationsTest
+            let editorTest = args.contains("--self-test-editor") || workspaceTest || trashTest || libraryTest || aiConfigurationsTest || referencesTest
             let bridgeTestRoot = args.contains("--self-test-webkit") || args.contains("--self-test-network") || editorTest ? try NativeTests.makeBridgeFixture() : nil
             let defaultRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("BaodeWriter", isDirectory: true)
             let root = bridgeTestRoot?.appendingPathComponent("data") ?? option("--data-dir").map { URL(fileURLWithPath: $0, isDirectory: true) } ?? defaultRoot
@@ -643,6 +675,7 @@ enum Entry {
             delegate.trashTest = trashTest
             delegate.libraryTest = libraryTest
             delegate.aiConfigurationsTest = aiConfigurationsTest
+            delegate.referencesTest = referencesTest
             delegate.testEvidence = option("--evidence").map { URL(fileURLWithPath: $0) }
             if bridgeTestRoot != nil { delegate.websiteDataStore = .nonPersistent() }
             app.delegate = delegate; app.setActivationPolicy(.regular)

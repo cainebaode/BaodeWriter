@@ -1,15 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { native } from './bridge';
 import { Icon } from './Icons';
 import { Disclosure, Presence, motionTime } from './Motion';
 import { AIReview, MarkdownText } from './AIReview';
 import { documentMarkdown, markdownBlocks } from './markdown';
-import { emptyDocument, type Document, type Note } from './model';
-import { applyArticle, applyProposal, buildRequest, composeWriting, continuedSelection, makeProposal, parseWritingResponse, proposalCopy, proposalLabel, providers, selectionAfterWriting, taskLabels, taskPrompts, type AIConfiguration, type AIMessage, type AISelection, type AISession, type AISettings, type AIScope, type AITask } from './ai';
+import { citedSnapshot, materialSnapshot, validReferenceUses, type Material, type Source } from './references';
+import { ReadingBlock, ReferenceContext, ReferenceMarkdown } from './ReferenceReading';
+import { emptyDocument, plainText, type Document, type Note } from './model';
+import { applyArticle, applyProposal, buildRequest, composeWriting, continuedSelection, makeProposal, parseWritingResponse, proposalCopy, proposalLabel, providers, selectionAfterWriting, taskLabels, taskPrompts, writingDocument, type AIConfiguration, type AIMessage, type AISelection, type AISession, type AISettings, type AIScope, type AITask } from './ai';
 
 const errorText=(e:unknown)=>e instanceof Error?e.message:String(e);
 const emptySettings:AISettings={configurations:[],defaultID:''};
+function DocumentReferenceText({reference}:{reference:string}){try{const value=JSON.parse(reference);return <section><h4>{value.title||'当前文稿'} · {value.版本||'选段参考'}</h4>{value.content.map((p:any,i:number)=><div key={i}>{value.format==='markdown'?<ReferenceMarkdown text={p.content}/>:<p>{plainText({...emptyDocument(),contentType:'blocknote',content:JSON.stringify([p.content])})}</p>}</div>)}</section>;}catch{return <p>未附加正文。</p>;}}
 export type AICommit=(id:string,expected:Document,next:Document,label:string,key:string,messageID:string,patch:Partial<AIMessage>)=>Promise<void>;
 
 export function AISettingsDialog({onClose,onSaved,embedded=false}:{onClose:()=>void;onSaved:(settings:AISettings)=>void;embedded?:boolean}){
@@ -41,13 +44,15 @@ export function AISettingsDialog({onClose,onSaved,embedded=false}:{onClose:()=>v
  return embedded?content:<div className="overlay">{content}</div>;
 }
 
-type Props={note?:Note;selection:AISelection|null;open:boolean;width:number;disabled:boolean;sessions:Record<string,AISession>;settingsVersion:number;onSession:(key:string,update:(session:AISession)=>AISession)=>void;onCommit:AICommit;onNew:(doc:Document,brief?:string)=>Promise<void>;onUndo:(id:string,revisionID:string)=>Promise<void>;onClose:()=>void;onSettings:()=>void};
-export function AIAssistant({note,selection,open,width,disabled,sessions,settingsVersion,onSession,onCommit,onNew,onUndo,onClose,onSettings}:Props){
+type Props={note?:Note;sources:Source[];onMaterial:(material:Material)=>void;onBrowse:()=>void;selection:AISelection|null;open:boolean;width:number;disabled:boolean;sessions:Record<string,AISession>;settingsVersion:number;onSession:(key:string,update:(session:AISession)=>AISession)=>void;onCommit:AICommit;onNew:(doc:Document,brief?:string,reply?:AIMessage)=>Promise<void>;onUndo:(id:string,revisionID:string)=>Promise<void>;onClose:()=>void;onSettings:()=>void};
+export function AIAssistant({note,sources,onMaterial,onBrowse,selection,open,width,disabled,sessions,settingsVersion,onSession,onCommit,onNew,onUndo,onClose,onSettings}:Props){
+ const references=useContext(ReferenceContext);
  const [settings,setSettings]=useState<AISettings>(emptySettings),[free,setFree]=useState(false),[error,setError]=useState(''),[historyOpen,setHistoryOpen]=useState(false);
  const [running,setRunning]=useState<{id:string;key:string;label:string;model:string}|null>(null),runningRef=useRef<typeof running>(null);
  const [committing,setCommitting]=useState(false),commitLock=useRef(false),scroll=useRef<HTMLDivElement>(null),input=useRef<HTMLTextAreaElement>(null);
  const [switching,setSwitching]=useState(false),switchLock=useRef(false);
  const [reviewID,setReviewID]=useState('');
+ const [previewOpen,setPreviewOpen]=useState(false);
  const key=free||!note?'free':note.id,session=sessions[key]||{messages:[]},task=session.task||'chat',scope=session.scope||(note&&!free?'full':'chat');
  const activeKey=useRef(key);activeKey.current=key;
  const review=session.messages.find(m=>m.id===reviewID);
@@ -59,6 +64,11 @@ export function AIAssistant({note,selection,open,width,disabled,sessions,setting
  const availableSelection=selectionArticle?.selection&&note&&selectionArticle.noteID===note.id&&selectionArticle.document.content===note.document.content&&selectionArticle.document.contentType===note.document.contentType?{...selectionArticle.selection,document:note.document}:selectionSource&&note&&selectionSource.noteID===note.id?continuedSelection(selectionSource,note.document,previousSelectionProposal):undefined;
  const setComposer=(patch:Partial<AISession>)=>onSession(key,s=>({...s,...patch}));
  const blocked=disabled||committing||switching;
+ const materials=note&&!free?note.materials||[]:[];
+ const nextRound=session.messages.filter(m=>m.role==='assistant').length+1;
+ function prepare(base=note?structuredClone(note.document):undefined){const snapshots=materials.flatMap(m=>{const snapshot=materialSnapshot(m,sources);return snapshot?[{...snapshot,round:nextRound}]:[];});return {snapshots,request:buildRequest(task,(session.draft||'').trim(),base,scope,availableSelection,session.messages,session.brief,{materials:snapshots,withoutHistory:session.withoutHistory})};}
+ let contextPreview:ReturnType<typeof prepare>|undefined,previewError='';if(previewOpen){try{contextPreview=prepare();}catch(e){previewError=errorText(e);}}
+ const working=note?writingDocument(note.document,scope,session.withoutHistory?[]:session.messages):undefined;
  useEffect(()=>{void native<AISettings>('aiLoad').then(setSettings).catch(e=>setError(errorText(e)));},[settingsVersion]);
  useEffect(()=>{if(selection){setFree(false);onSession(selection.noteID,s=>({...s,task:'selection',scope:'selection',draft:taskPrompts.selection}));setError('');requestAnimationFrame(()=>input.current?.focus());}},[selection]);
  useEffect(()=>{setError('');setReviewID('');},[key]);
@@ -84,15 +94,16 @@ export function AIAssistant({note,selection,open,width,disabled,sessions,setting
    if(scope==='selection'&&!availableSelection)throw new Error('请先选择正文文字，再点「AI 润色」。');
    if(task==='selection'&&!availableSelection)throw new Error('请重新选择需要修改的文字。');
    const base=note?structuredClone(note.document):undefined;
-   const request=buildRequest(task,prompt,base,scope,availableSelection,session.messages,session.brief);
+   const {request,snapshots}=prepare(base);
    const id=crypto.randomUUID(),state={id,key,label:free?'独立构思':note?.document.title||'无标题文稿',model:config.name+' · '+config.model};
    sentID=id;runningRef.current=state;setRunning(state);setError('');
    onSession(key,s=>({...s,messages:[...s.messages,{id:crypto.randomUUID(),role:'user',text:prompt,at:new Date().toISOString(),context:scope==='full'?'当前全文':scope==='selection'?'选中内容':'仅聊天',reference:request.reference}]}));
    const result=await native<{content:string}>('aiRequest',{requestID:id,configurationID:config.id,messages:request.messages});
    if(runningRef.current?.id!==id)return;
-   const reply:AIMessage={id:crypto.randomUUID(),role:'assistant',text:result.content,at:new Date().toISOString(),model:state.model};
+   const reply:AIMessage={id:crypto.randomUUID(),role:'assistant',text:result.content,at:new Date().toISOString(),model:state.model,materials:snapshots.map(s=>({...s,allParts:[]})),round:nextRound};
    const value=parseWritingResponse(result.content),limited=scope==='selection'||task==='selection';
    reply.text=value.reply;
+   reply.referenceUses=validReferenceUses(value.citations,snapshots);
    if(value.article||value.edits?.length||value.insertion){
     if(value.article&&limited)throw new Error('本次只允许修改选段，AI 返回了全文。请取消选段后发起完整写作。');
     if(value.edits?.length&&!request.workingDocument)throw new Error('请先打开要修改的文稿。');
@@ -137,6 +148,7 @@ export function AIAssistant({note,selection,open,width,disabled,sessions,setting
  {session.messages.map(m=><section className={`ai-message ${m.role}`} key={m.id}>
  {m.role==='user'?<><pre className="ai-text">{m.text}</pre>{m.context==='选中内容'&&<small>针对选中文字</small>}</>:<>
  {m.model&&<small className="ai-message-model">{m.model}</small>}<MarkdownText text={m.text}/>
+ {m.materials?.length? <details className="ai-reply-references"><summary>{m.referenceUses?.length?'查看原文依据':'本轮收到的材料 · AI 未标明具体依据'}</summary>{m.materials.filter(s=>!m.referenceUses?.length||m.referenceUses.some(use=>use.id===s.id)).map(snapshot=>{const used=m.referenceUses?.filter(use=>use.id===snapshot.id).flatMap(use=>use.parts);const display=used?.length?citedSnapshot(snapshot,[...new Set(used)]):snapshot;return <div key={snapshot.id}><ReadingBlock snapshot={display} round={m.round}/><button disabled={blocked} onClick={()=>references.onAINote(display,m.text)}>保存讨论为 AI 笔记</button></div>;})}</details>:null}
  {(m.proposal?.changes.length||m.article)&&<button className="ai-review-card" onClick={()=>{setError('');setReviewID(m.id);}}><span>{m.article?m.article.document.title:`${m.proposal!.changes.length} 处修改建议`}</span><small>{m.article?(m.article.state==='accepted'?'已接受':m.article.state==='skipped'?'已拒绝':proposalLabel(m.article)+' · 待审阅'):`${m.proposal!.changes.filter(c=>c.state==='pending').length} 处待审阅`} · 在正文区查看 →</small></button>}
 
  {m.titles&&<div className="ai-title-list">{m.titles.map((title,i)=><div key={i}><p>{title}</p><button disabled={blocked||m.titleApplied||!note||free} onClick={()=>void action(async()=>{if(note!.document.title!==m.titleBase)throw new Error('标题已变化，请让我重新拟一版。');await onCommit(note!.id,note!.document,{...note!.document,title},'AI 标题',key,m.id,{titleApplied:true});})}>{m.titleApplied?'已采用':'采用标题'}</button></div>)}</div>}
@@ -147,6 +159,7 @@ export function AIAssistant({note,selection,open,width,disabled,sessions,setting
 
  </div>
  <div className="ai-composer">
+ <details className="ai-materials"><summary>本轮材料 · {materials.filter(m=>m.aiScope!=='none').length} 项{session.withoutHistory?' · 不带历史':' · 含历史对话'}</summary><p className="hint">写作对象：{free?'独立构思':note?.document.title||'当前文章'} · {working&&note&&working!==note.document?'待审阅草稿':'当前保存正文'}。仅改变下方范围才会附加资料。</p><button disabled={blocked||!!running||free} onClick={onBrowse}>添加资料 ＋</button>{materials.map(m=><label key={m.id}>{sources.find(s=>s.id===m.sourceID)?.title||'保存的资料'}<select aria-label="本轮附加材料范围" value={m.aiScope} disabled={blocked||!!running} onChange={e=>onMaterial({...m,aiScope:e.target.value as Material['aiScope']})}><option value="none">本轮不附加</option><option value="excerpt">摘录、相邻段落和批注</option><option value="full">全文和这条批注</option></select></label>)}<label className="ai-history-choice"><input type="checkbox" checked={!!session.withoutHistory} disabled={blocked||!!running} onChange={e=>setComposer({withoutHistory:e.target.checked})}/>本轮不带历史对话</label><small>历史对话可能含先前资料；取消附加不代表从旧讨论中移除。</small><details onToggle={e=>setPreviewOpen(e.currentTarget.open)}><summary>预览实际发送内容与历史</summary><div className="ai-readable-preview">{previewError&&<p>{previewError}</p>}{contextPreview&&<><h4>本轮要求</h4><p>{session.draft||'尚未输入'}</p><h4>写作约定</h4><p>{session.brief||'尚未约定'}</p>{contextPreview.request.reference&&<DocumentReferenceText reference={contextPreview.request.reference}/>}{contextPreview.request.originalReference&&<DocumentReferenceText reference={JSON.stringify({...contextPreview.request.originalReference,版本:'作者原稿，用于核对待审阅草稿',content:contextPreview.request.originalReference.content.map(content=>({content}))})}/>}<h4>本轮附加的资料与批注</h4>{contextPreview.snapshots.map(snapshot=><section key={snapshot.id}><h4>{snapshot.title} · {snapshot.scope==='full'?'全文':'摘录及相邻段落'}</h4><small>{snapshot.author} · {snapshot.url} · {new Date(snapshot.at).toLocaleString()}</small>{snapshot.warning&&<p>{snapshot.warning}</p>}{snapshot.parts.map(part=><ReferenceMarkdown key={part.id} text={part.markdown}/>)}{snapshot.annotationQuote&&snapshot.annotationQuote!==snapshot.quote&&<><small>随批注附加的原摘录：</small><blockquote>{snapshot.annotationQuote}</blockquote></>}<p>我的批注：{snapshot.note||'仅高亮'}</p></section>)}<h4>历史对话 · {session.withoutHistory?0:session.messages.length} 条</h4>{!session.withoutHistory&&session.messages.map(m=><section key={m.id}><small>{m.role==='user'?'我':'AI'}</small><ReferenceMarkdown text={m.text}/>{m.context==='选中内容'&&m.reference&&<DocumentReferenceText reference={m.reference}/>} {m.article&&<ReferenceMarkdown text={m.article.markdown}/>} {m.proposal?.changes.map(c=><p key={c.id}>{c.before} → {c.after}</p>)}{m.titles?.map(t=><p key={t}>{t}</p>)}</section>)}</>}</div></details></details>
  <div className="ai-context" title={reference}>{scope==='selection'?<><span>↳ {availableSelection?.text||'选段已变化，请重新选择或取消引用'}</span><button aria-label="取消选段引用" disabled={!!running} onClick={()=>setComposer({task:'chat',scope:note&&!free?'full':'chat'})}>×</button></>:<span>{free||!note?'独立构思':scope==='chat'?'聊想法':note.document.title||'当前文稿'}</span>}</div>
  <Disclosure section className="ai-brief" key={key} summary={session.brief?'本篇写作约定':'写作约定 · 可选'}><textarea aria-label="本篇写作约定" rows={4} maxLength={3000} disabled={blocked||!!running} value={session.brief||''} placeholder="交流中逐步记住主题、读者与风格，也可以在这里直接修改。" onChange={e=>setComposer({brief:e.target.value})}/><small>只记录这次创作的要求；新对话继续保留，可随时清空。</small></Disclosure>
  <div className="ai-input-box"><textarea ref={input} aria-label="AI 写作要求" rows={2} disabled={!!running||blocked} placeholder="写什么、写给谁，或希望怎样修改…" value={session.draft||''} onChange={e=>setComposer({draft:e.target.value})} onKeyDown={e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();void send();}}}/><button className="ai-send" aria-label={running?'停止生成':'发送'} title="⌘ Enter 发送" disabled={blocked||(!running&&!(session.draft||'').trim())} onClick={()=>running?stop():void send()}>{running?'□':'↑'}</button></div></div>
@@ -155,7 +168,7 @@ export function AIAssistant({note,selection,open,width,disabled,sessions,setting
  {reviewHost&&createPortal(<Presence show={!!(open&&review)} className="review-presence" duration={motionTime.dialog}>{review&&<AIReview key={review.id} message={review} blocked={blocked} error={error} onClose={()=>setReviewID('')} onApply={ids=>{
   if(review.article)void action(async()=>{if(!note||free)throw new Error('请另存为新文稿，或回到原文稿再接受。');const next=applyArticle(note.document,note.id,review.article!);await onCommit(note.id,note.document,next,'AI '+proposalLabel(review.article!),key,review.id,{article:{...review.article!,state:'accepted'}});});
   else apply(review,ids||review.proposal!.changes.filter(c=>c.state==='pending').map(c=>c.id));
- }} onReject={ids=>{if(review.article)updateMessage(review.id,{article:{...review.article,state:'skipped'}});else updateMessage(review.id,{proposal:{...review.proposal!,changes:review.proposal!.changes.map(c=>c.state==='pending'&&(!ids||ids.includes(c.id))?{...c,state:'skipped'}:c)}});}} onCopy={()=>void action(()=>onNew(review.article?review.article.document:{...proposalCopy(review.proposal!),title:review.proposal!.base.title+' · AI 建议版'},session.brief))}/>}</Presence>,reviewHost)}
+ }} onReject={ids=>{if(review.article)updateMessage(review.id,{article:{...review.article,state:'skipped'}});else updateMessage(review.id,{proposal:{...review.proposal!,changes:review.proposal!.changes.map(c=>c.state==='pending'&&(!ids||ids.includes(c.id))?{...c,state:'skipped'}:c)}});}} onCopy={()=>void action(()=>onNew(review.article?review.article.document:{...proposalCopy(review.proposal!),title:review.proposal!.base.title+' · AI 建议版'},session.brief,review))}/>}</Presence>,reviewHost)}
 
  </>;
 }

@@ -76,6 +76,32 @@ final class WriterStore {
 
     private func validateLibrary(_ object: [String: Any]) throws {
         guard object["schema"] as? Int == 1, let notes = object["notes"] as? [[String: Any]] else { throw WriterError("文稿库版本或内容格式无法识别，原文件已保留。") }
+        var sourceVersions: [String: Set<String>] = [:]
+        if let value = object["sources"] {
+            guard let sources = value as? [[String: Any]] else { throw WriterError("参考资料格式无法识别，原文件已保留。") }
+            for source in sources {
+                guard let id = source["id"] as? String, !id.isEmpty, sourceVersions[id] == nil,
+                      source["title"] is String, source["author"] is String, source["url"] is String,
+                      let versions = source["versions"] as? [[String: Any]], !versions.isEmpty,
+                      let annotations = source["annotations"] as? [[String: Any]] else { throw WriterError("参考资料字段损坏，原文件已保留。") }
+                var versionIDs = Set<String>()
+                for version in versions {
+                    guard let vid = version["id"] as? String, !vid.isEmpty, versionIDs.insert(vid).inserted,
+                          version["at"] is String, let doc = version["document"] as? [String: Any],
+                          ["title", "slug", "description", "content", "coverImage"].allSatisfy({ doc[$0] is String }),
+                          doc["contentType"] as? String == "markdown", doc["tags"] is [String] else { throw WriterError("参考资料的保存版本无效，原文件已保留。") }
+                }
+                sourceVersions[id] = versionIDs
+                var annotationIDs = Set<String>()
+                for annotation in annotations {
+                    guard let aid = annotation["id"] as? String, annotationIDs.insert(aid).inserted,
+                          let vid = annotation["versionID"] as? String, versionIDs.contains(vid),
+                          let parts = annotation["parts"] as? [String], parts.allSatisfy({ $0.range(of: "^p[0-9]+$", options: .regularExpression) != nil }),
+                          annotation["quote"] is String, annotation["text"] is String,
+                          let revision = annotation["revision"] as? Int, revision > 0 else { throw WriterError("批注或原文版本关联无效，原文件已保留。") }
+                }
+            }
+        }
         var folderIDs = Set<String>()
         if let value = object["folders"] {
             guard let folders = value as? [[String: String]] else { throw WriterError("文件夹信息无法识别，原文件已保留。") }
@@ -99,6 +125,17 @@ final class WriterStore {
         let date = ISO8601DateFormatter(); date.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let basicDate = ISO8601DateFormatter()
         for note in notes {
+            if let value = note["materials"] {
+                guard let materials = value as? [[String: Any]] else { throw WriterError("写作材料格式无效。") }
+                var materialIDs = Set<String>()
+                for material in materials {
+                    guard let id = material["id"] as? String, materialIDs.insert(id).inserted,
+                          let source = material["sourceID"] as? String, let version = material["versionID"] as? String,
+                          sourceVersions[source]?.contains(version) == true,
+                          material["quote"] is String, material["text"] is String, material["parts"] is [String],
+                          let scope = material["aiScope"] as? String, ["none", "excerpt", "full"].contains(scope) else { throw WriterError("写作材料或保存的来源版本缺失，原文件已保留。") }
+                }
+            }
             if let value = note["trashedAt"] {
                 guard let timestamp = value as? String, date.date(from: timestamp) != nil || basicDate.date(from: timestamp) != nil else { throw WriterError("文稿删除日期无效，原文件已保留。") }
             }
@@ -232,9 +269,9 @@ final class WriterStore {
             guard Self.digest(data) == file.deletingPathExtension().lastPathComponent else { throw WriterError("备份中的图片校验失败，尚未覆盖当前文稿。") }
         }
         let available = Set(entries.map(\.lastPathComponent))
-        for note in library["notes"] as? [[String: Any]] ?? [] {
-            guard let document = note["document"] as? [String: Any] else { continue }
-            let content = (document["coverImage"] as? String ?? "") + " " + (document["content"] as? String ?? "")
+        do {
+            // Sources, old source versions and AI snapshots may also retain images.
+            let content = String(data: try JSONSerialization.data(withJSONObject: library, options: [.withoutEscapingSlashes]), encoding: .utf8) ?? ""
             let pattern = try NSRegularExpression(pattern: "writer-asset://local/([a-f0-9]{64}\\.(?:jpg|png|gif|webp|avif|heic|heif|tiff|bmp|svg))")
             let text = content.replacingOccurrences(of: "\\/", with: "/") as NSString
             for match in pattern.matches(in: text as String, range: NSRange(location: 0, length: text.length)) {

@@ -1,6 +1,49 @@
 import Foundation
 
 enum NativeEditorTests {
+    static let referencesScript = #"""
+    const bridge=args=>window.webkit.messageHandlers.native.postMessage(args),pause=ms=>new Promise(r=>setTimeout(r,ms)),checks=[];
+    const assert=(value,label)=>{if(!value)throw new Error(label+'; passed: '+checks.join(', '));checks.push(label);};
+    const wait=async(fn,label)=>{for(let i=0;i<120;i++){const value=fn();if(value)return value;await pause(60);}throw new Error('Timeout '+label+'; passed: '+checks.join(', '));};
+    const visible=el=>el&&!el.closest('[inert],[hidden]')&&el.getClientRects().length;
+    const button=(label,root=document)=>Array.from(root.querySelectorAll('button')).find(b=>!b.disabled&&visible(b)&&(b.textContent.trim()===label||b.getAttribute('aria-label')===label));
+    const click=async(label,root=document)=>{(await wait(()=>button(label,root),label)).click();await pause(180);};
+    const fill=async(el,value)=>{const proto=el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:el.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(el,value);el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}));await pause(100);};
+    const library=async()=>{await window.flushAll();return (await bridge({action:'load'})).library;};
+    await wait(()=>document.querySelector('.bn-editor')?.textContent.includes('第二段正文'),'initial writer');
+    const original=(await library()).notes.find(n=>n.id==='fixture-block').document.content;
+    await click('写作材料');await click('添加资料或批注 ＋');await click('收存资料 ＋');
+    const importer=document.querySelector('.source-import');await fill(importer.querySelector('[aria-label="资料标题"]'),'离线引用资料');await fill(importer.querySelector('[aria-label="资料作者"]'),'虚构作者');await fill(importer.querySelector('[aria-label="资料正文"]'),'## 环境\n\n环境也会影响专注，减少提示可以降低开始工作的阻力。\n\n个人的选择仍然重要。');
+    await click('预览',importer);assert(importer.querySelector('.source-import-preview').textContent.includes('减少提示'),'import preview is readable');await click('收存到本机',importer);
+    await wait(()=>document.querySelector('.source-text [data-source-part="p1"]'),'stored source');
+    const part=document.querySelector('.source-text [data-source-part="p1"] p'),range=document.createRange();range.selectNodeContents(part);window.getSelection().removeAllRanges();window.getSelection().addRange(range);part.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));await click('高亮并添加批注');
+    const annotation=await wait(()=>document.querySelector('.source-annotation textarea'),'annotation editor');await fill(annotation,'我想从环境和个人选择之间的关系写起。');
+    let value=await library();assert(value.sources.length===1&&value.sources[0].annotations[0].text.includes('个人选择'),'source and annotation persist');
+    document.querySelector('.source-annotation input[type=checkbox]').click();await pause(100);await click('加入《富文本验证》材料');
+    await wait(()=>document.querySelector('.reference-panel .reference-reading'),'material available');value=await library();assert(value.notes.find(n=>n.id==='fixture-block').document.content===original,'materials never modify body');
+    const editor=document.querySelector('.bn-editor');editor.focus();const inline=editor.querySelector('.bn-inline-content');const node=Array.from(inline.childNodes).find(n=>n.nodeType===Node.TEXT_NODE);const caret=document.createRange();caret.setStart(node,3);caret.setEnd(node,6);window.getSelection().removeAllRanges();window.getSelection().addRange(caret);document.dispatchEvent(new Event('selectionchange'));await pause(220);
+    const selected=window.getSelection().toString();await click('附到正在写的段落',document.querySelector('.reference-panel'));
+    const widget=await wait(()=>document.querySelector('.inline-reference-widget .reference-reading'),'private reference decoration');assert(widget.textContent.includes('环境也会影响'),'reference reads inline');
+    const trigger=button('展开上下文',widget);trigger.click();await pause(150);assert(trigger===button('收起上下文',widget),'context preserves trigger node');
+    await click('返回编辑位置',document.querySelector('.reference-panel'));assert(window.getSelection().toString()===selected,'writer selection returns exactly');
+    const card=document.querySelector('.reference-panel .reference-reading');card.querySelector('details').open=true;await pause(70);assert(button('保存原批注',card)===undefined,'unchanged source annotation cannot be cleared by save');const draft=card.querySelector('textarea');await fill(draft,'还没有保存的原批注草稿');await click('全文对照',card);await click('返回材料',document.querySelector('.reference-panel'));const returned=document.querySelector('.reference-panel .reference-reading');returned.querySelector('details').open=true;await pause(70);assert(returned.querySelector('textarea').value==='还没有保存的原批注草稿','annotation draft survives full-reading mode');
+    await click('与 AI 讨论');const details=document.querySelector('.ai-materials');details.open=true;await pause(100);await fill(details.querySelector('[aria-label="本轮附加材料范围"]'),'excerpt');const preview=details.querySelector('details');preview.open=true;await pause(150);assert(details.querySelector('.ai-readable-preview').textContent.includes('我想从环境和个人选择'),'actual request preview shows adopted annotation');
+    details.querySelector('input[type=checkbox]').click();await pause(100);assert((await library()).aiSessions['fixture-block'].withoutHistory===true,'history exclusion is saved per manuscript');
+    assert((await library()).notes.find(n=>n.id==='fixture-block').document.content===original,'reference reading and AI range changes keep body untouched');
+    await fill(document.querySelector('[aria-label="AI 写作要求"]'),'保留的未发送问题');await click('写作材料');await click('全文对照',document.querySelector('.reference-panel'));await click('返回材料',document.querySelector('.reference-panel'));await click('与 AI 讨论');assert(document.querySelector('[aria-label="AI 写作要求"]').value==='保留的未发送问题','unsent AI text survives reading');
+    await click('写作材料');
+    editor.focus();const second=editor.querySelector('[data-id="p2"] .bn-inline-content'),secondText=document.createTreeWalker(second,NodeFilter.SHOW_TEXT).nextNode(),moved=document.createRange();moved.setStart(secondText,2);moved.setEnd(secondText,4);window.getSelection().removeAllRanges();window.getSelection().addRange(moved);document.dispatchEvent(new Event('selectionchange'));await pause(180);await click('附到正在写的段落',document.querySelector('.reference-panel'));
+    await wait(()=>document.querySelectorAll('.inline-reference-widget .reference-reading').length===1&&document.querySelector('.inline-reference-widget').textContent.includes('减少提示'),'moved reference remains readable');assert((await library()).notes.find(n=>n.id==='fixture-block').materials[0].anchor.blockID==='p2','reference can be reattached without losing its reader');
+    await click('添加资料或批注 ＋');document.querySelector('.source-annotation input[type=checkbox]').click();await pause(70);await click('用所选批注新建文章');const created=(await library()).notes.find(n=>!n.id.startsWith('fixture-'));assert(created&&created.materials.length===1&&!created.document.content.includes('环境也会影响'),'new manuscript keeps annotation material and starts with its own body');
+    await click('富文本验证');await window.flushAll();return checks.join(' | ');
+    """#
+
+    static let narrowReferencesScript = #"""
+    await new Promise(resolve=>setTimeout(resolve,300));
+    const pane=document.querySelector('.document-workspace').getBoundingClientRect(),panel=document.querySelector('.reference-panel').getBoundingClientRect();
+    if(pane.bottom>panel.top+2||pane.height<140||panel.bottom>window.innerHeight+1)throw new Error('Reference drawer covers writer or overflows window');
+    return 'writer and material drawer occupy separate rows';
+    """#
     static func seed(_ store: WriterStore, library: Bool = false) throws {
         let blocks: [[String: Any]] = [
             ["id":"p1","type":"paragraph","props":[:],"content":[["type":"text","text":"第一段正文写下我的想法。","styles":[:]]],"children":[]],

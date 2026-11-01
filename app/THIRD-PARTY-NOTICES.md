@@ -200,8 +200,8 @@ The application uses system fonts. The unmodified BlockNote source archive also 
 
 ## Verification
 
-Metafile SHA-256: `580c6ca909773e750c92ec289f6509cae5248dfb87d6de97f61360cc39117381`
+Metafile SHA-256: `0858544dc211941d77149d504200a97be531315d9e036559bd6349c2ca41cb3b`
 
-Lockfile SHA-256: `70ba74d183e343c228ffd1a48124a0044a88b3adb9c76f8a8c75d6742beee428`
+Lockfile SHA-256: `81614e338b3dda4ffde1768d0e715127d5a84011321773e6783b39e9dfbea04a`
 
 The build fails on unreviewed licenses, missing license text, unexpected prebundled dependencies, BlockNote XL packages, or external bundle imports. Future version changes require a new audit; this inventory does not claim that every future release has the same license.

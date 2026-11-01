@@ -1,12 +1,13 @@
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { parseFragment } from 'parse5';
 import type { AIRevision, AISession } from './ai';
+import type { Material, QuoteRecord, Source } from './references';
 
 export type Document = {title:string;slug:string;description:string;content:string;contentType:'markdown'|'blocknote';coverImage:string;tags:string[]};
 export type Remote = {id:string;document:Document;version:string;revision:number;publishedRevision:number;status:string;publishedAt:string|null;updatedAt:string;createdAt:string;publicSlug:string;deleted?:boolean};
-export type Note = {id:string;document:Document;displayDate:string;createdAt:string;updatedAt:string;base:Remote|null;syncedKey?:string;assets:Record<string,string>;conflict?:{remote:Remote|null;detectedAt:string};error?:string;archived?:boolean;trashedAt?:string;siteURL?:string;resourceWarning?:string;folderId?:string;parentId?:string;aiRevisions?:AIRevision[]};
+export type Note = {id:string;document:Document;displayDate:string;createdAt:string;updatedAt:string;base:Remote|null;syncedKey?:string;assets:Record<string,string>;conflict?:{remote:Remote|null;detectedAt:string};error?:string;archived?:boolean;trashedAt?:string;siteURL?:string;resourceWarning?:string;folderId?:string;parentId?:string;aiRevisions?:AIRevision[];materials?:Material[];quotations?:QuoteRecord[]};
 export type Folder = {id:string;name:string;parentId?:string};
-export type Library = {schema:1;notes:Note[];folders?:Folder[];aiSessions?:Record<string,AISession>};
+export type Library = {schema:1;notes:Note[];folders?:Folder[];aiSessions?:Record<string,AISession>;sources?:Source[]};
 export type Heading = {id:string;level:number;text:string;offset?:number};
 export function documentHeadings(doc:Document):Heading[]{
  const result:Heading[]=[];

@@ -9,6 +9,7 @@
 | 位置 | 用途与关系 |
 | --- | --- |
 | [appearance.test.ts](appearance.test.ts) | 外观偏好恢复与损坏值回退 |
+| [references.test.ts](references.test.ts) | 来源版本、批注采用隔离、原文位置、历史边界、引文出处与导入格式 |
 | [ai.test.ts](ai.test.ts) | AI 提案与写入边界 |
 | [article.test.ts](article.test.ts) | 文章生成、解析和接受 |
 | [model.test.ts](model.test.ts) | 文稿、媒体与日期模型 |

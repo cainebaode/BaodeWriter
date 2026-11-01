@@ -19,6 +19,8 @@
 | [refined.css](refined.css)、[appearance.css](appearance.css) | 已确认的工作区布局与八种外观组合 |
 | [AIAssistant.tsx](AIAssistant.tsx) | AI 配置管理、快速切换与当前文章的 AI 交互 |
 | [AIReview.tsx](AIReview.tsx) | 建议预览与接受流程 |
+| [Sources.tsx](Sources.tsx)、[ReferenceReading.tsx](ReferenceReading.tsx)、[ReferenceWidgets.tsx](ReferenceWidgets.tsx) | 资料收存、批注、原位引用阅读与正文外装饰 |
+| [references.ts](references.ts)、[sourceImport.ts](sourceImport.ts)、[references.css](references.css) | 来源版本、采用快照、HTML 提取及沿用现有主题的材料界面 |
 | [model.ts](model.ts) | 文稿模型、格式与同步事实 |
 | [tree.ts](tree.ts) | 树结构操作 |
 | [workspace.ts](workspace.ts) | 标签与分栏状态 |

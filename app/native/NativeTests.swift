@@ -252,6 +252,30 @@ enum NativeTests {
         try rejects("cyclic document hierarchy rejected") { _ = try organized.save(treeLibrary) }
         treeNotes[0].removeValue(forKey: "parentId"); treeNotes[1]["parentId"] = "missing"; treeLibrary["notes"] = treeNotes
         try rejects("missing document parent rejected") { _ = try organized.save(treeLibrary) }
+        var referenceLibrary = fixture("引用写作")
+        var sourceDocument = (referenceLibrary["notes"] as! [[String: Any]])[0]["document"] as! [String: Any]
+        sourceDocument["content"] = "原文段落 ![图](\(url))"
+        let source: [String: Any] = ["id":"source", "title":"原文", "author":"作者", "url":"https://example.com/article", "versions":[["id":"v1", "at":"2026-11-01T00:00:00.000Z", "document":sourceDocument]], "annotations":[["id":"a1", "versionID":"v1", "parts":["p0"], "quote":"原文段落", "text":"我的判断", "revision":1]]]
+        referenceLibrary["sources"] = [source]
+        var referenceNotes = referenceLibrary["notes"] as! [[String: Any]]
+        referenceNotes[0]["materials"] = [["id":"m1", "sourceID":"source", "versionID":"v1", "parts":["p0"], "quote":"原文段落", "text":"我的判断", "annotationRevision":1, "aiScope":"excerpt"]]
+        referenceLibrary["notes"] = referenceNotes
+        let referencesStore = try WriterStore(root: temporary.appendingPathComponent("references"))
+        _ = try referencesStore.storeImage(data: pixel, mime: "image/png", name: "资料图片.png")
+        _ = try referencesStore.save(referenceLibrary)
+        let referencesBackup = temporary.appendingPathComponent("references.baodewriter")
+        _ = try referencesStore.exportBackup(to: referencesBackup)
+        let referencesRestore = try WriterStore(root: temporary.appendingPathComponent("references-restored"))
+        _ = try referencesRestore.restoreBackup(from: referencesBackup)
+        let restoredReferences = try referencesRestore.load()["library"] as! [String: Any]
+        try check((restoredReferences["sources"] as? [[String: Any]])?.count == 1, "source versions and annotations survive backup")
+        try check(((restoredReferences["notes"] as? [[String: Any]])?.first?["materials"] as? [[String: Any]])?.first?["text"] as? String == "我的判断", "adopted note snapshot survives backup")
+        var invalidReferences = referenceLibrary; invalidReferences["sources"] = []
+        try rejects("missing source versions do not silently load") { _ = try referencesStore.save(invalidReferences) }
+        try check(try publicSourceURL("https://example.com/article").host == "example.com", "public source URL accepted")
+        try rejects("source import rejects local files") { _ = try publicSourceURL("file:///etc/hosts") }
+        try rejects("source import rejects private numeric address") { _ = try publicSourceURL("https://127.0.0.1/x") }
+        try rejects("source import does not use credential URLs") { _ = try publicSourceURL("https://user:secret@example.com/x") }
         print("PASS: \(assertions) native storage, recovery, backup, image, origin and AI response assertions. No production files or servers were accessed.")
     }
 }

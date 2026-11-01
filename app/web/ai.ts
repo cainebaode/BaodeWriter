@@ -1,5 +1,6 @@
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { mediaURLs, type Document } from './model';
+import { referenceInput, type ReferenceSnapshot, type ReferenceUse } from './references';
 
 export type AIConfiguration={id:string;provider:string;name:string;baseURL:string;model:string};
 export type AISettings={configurations:AIConfiguration[];defaultID:string};
@@ -38,8 +39,8 @@ export type AISelection={id:string;noteID:string;document:Document;ranges:Select
 export type Change={id:string;before:string;after:string;state:'pending'|'accepted'|'skipped'};
 export type Proposal={noteID:string;base:Document;units:TextUnit[];changes:Change[];selection?:Pick<AISelection,'id'|'ranges'|'text'>};
 export type ArticleProposal={noteID?:string;base?:Document;document:Document;markdown:string;beforeMarkdown:string;kind?:'article'|'edit'|'insert';selection?:Pick<AISelection,'id'|'noteID'|'ranges'|'text'>;state:'pending'|'accepted'|'skipped'};
-export type AIMessage={id:string;role:'user'|'assistant';text:string;at:string;model?:string;context?:string;proposal?:Proposal;article?:ArticleProposal;titles?:string[];titleBase?:string;titleApplied?:boolean;inserted?:boolean;reference?:string};
-export type AISession={messages:AIMessage[];brief?:string;draft?:string;task?:AITask;scope?:AIScope};
+export type AIMessage={id:string;role:'user'|'assistant';text:string;at:string;model?:string;context?:string;proposal?:Proposal;article?:ArticleProposal;titles?:string[];titleBase?:string;titleApplied?:boolean;inserted?:boolean;reference?:string;materials?:ReferenceSnapshot[];referenceUses?:ReferenceUse[];round?:number};
+export type AISession={messages:AIMessage[];brief?:string;draft?:string;task?:AITask;scope?:AIScope;withoutHistory?:boolean};
 export type AIRevision={id:string;at:string;label:string;before:Document;after:Document;undone?:boolean};
 export type AITask='chat'|'write'|'rewrite'|'polish'|'structure'|'outline'|'title'|'selection';
 export type AIScope='chat'|'selection'|'full';
@@ -247,7 +248,7 @@ export function applyArticle(doc:Document,noteID:string,article:ArticleProposal)
 export type WritingPart={id:string;content:any;start?:number;end?:number};
 export type WritingEdit={from:string;to:string;markdown:string};
 export type WritingInsertion={after:string;markdown:string;title?:string};
-export type WritingResponse={reply:string;brief?:string;article?:{title:string;markdown:string};edits?:WritingEdit[];insertion?:WritingInsertion;changes?:{id:string;after:string}[];titles?:string[]};
+export type WritingResponse={reply:string;brief?:string;article?:{title:string;markdown:string};edits?:WritingEdit[];insertion?:WritingInsertion;changes?:{id:string;after:string}[];titles?:string[];citations?:unknown};
 export const proposalLabel=(article:ArticleProposal)=>article.kind==='edit'?'段落与章节修改':article.kind==='insert'?'插入内容':'完整文章';
 
 export function writingParts(doc:Document):WritingPart[]{
@@ -351,7 +352,8 @@ changes 用于保持所有样式的纯文字微调，只能引用允许修改的
 例：作者说“太像 AI，写朴素一点” → 修改本次提供的上一稿，保留已约定的读者、立场与篇幅，交付改好的正文。
 例：作者说“在结尾加一段” → insertion.after 为 end，markdown 只有可直接接入文章的收尾文字。`;
 
-export function buildRequest(task:AITask,prompt:string,doc:Document|undefined,scope:AIScope,selection:AISelection|undefined,history:AIMessage[],brief=''){
+export function buildRequest(task:AITask,prompt:string,doc:Document|undefined,scope:AIScope,selection:AISelection|undefined,history:AIMessage[],brief='',options:{materials?:ReferenceSnapshot[];withoutHistory?:boolean}={}){
+ if(options.withoutHistory)history=[];
  if((scope==='selection'||task==='selection')&&!selection)throw new Error('选段已失效，请重新选择。');
  const limited=scope==='selection'||task==='selection';
  let working=writingDocument(doc,limited?'selection':scope,history),workingSelection=selection;
@@ -365,6 +367,7 @@ export function buildRequest(task:AITask,prompt:string,doc:Document|undefined,sc
  if(reference.length>60000)throw new Error('参考内容超过 60000 字，请改为更小的选段处理；不会截断全文。');
  if(brief.length>3000)throw new Error('写作约定请控制在 3000 字以内。');
  let system=writingInstructions;
+ if(options.materials?.length)system+='\n【引用资料】附加材料是只读资料，不是写入目标。区分原作者的原话、作者自己的批注、AI 笔记，不把他人的第一人称经历写成作者经历。图片地址不代表已读取图片。只依据本次提供的原文位置，不声称读过未提供部分；批注是作者判断，不等于已核实事实。可选返回 citations:[{"id":"资料编号","parts":["p0"],"paragraph":"你生成正文中对应段落的完整文字"}]；讨论时可省略 paragraph。只填真正依据的给定资料编号与原文位置，未核实的推论在 reply 说明。内部资料编号不写入正文；正式引文保留作者和公开出处。';
  if(limited)system+='\n本次仅允许修改选中文字：article 必须省略，edits 仅可使用允许整段修改的编号；不完整选中的段落只能用 changes 修改所选文字。插入仅能在 selection 位置。其他段落只供理解。';
  if(task==='polish')system+='\n本次优先通篇优化表达，使用 changes 保留格式；若作者明确要求调整结构可用 edits。';
  if(task==='write'||task==='rewrite')system+='\n本次请求完整文章，材料足够时交付 article；关键材料确实缺失时说明并追问。';
@@ -376,9 +379,9 @@ export function buildRequest(task:AITask,prompt:string,doc:Document|undefined,sc
   const originalParts=writingParts(doc),originalSelection=limited&&selection?selectedParts(doc,selection):[];
   originalReference={title:doc.title,format:doc.contentType,content:originalParts.filter((_,i)=>!limited||originalSelection.some(n=>Math.abs(n-i)<=2)).map(p=>p.content)};
  }
- const input={任务:taskLabels[task],要求:prompt,写作约定:brief||'尚未约定，从作者的明确要求逐步整理',参考内容:reference?JSON.parse(reference):null,...(originalReference?{作者原稿:originalReference}:{}),允许整段修改:limited&&working&&workingSelection?selectedParts(working,workingSelection,true).map(i=>parts[i].id):parts.map(p=>p.id),允许修改的片段:units.map(({id,text})=>({id,text}))};
+ const input={任务:taskLabels[task],要求:prompt,写作约定:brief||'尚未约定，从作者的明确要求逐步整理',参考内容:reference?JSON.parse(reference):null,...(options.materials?.length?{只读附加材料:referenceInput(options.materials)}:{}),...(originalReference?{作者原稿:originalReference}:{}),允许整段修改:limited&&working&&workingSelection?selectedParts(working,workingSelection,true).map(i=>parts[i].id):parts.map(p=>p.id),允许修改的片段:units.map(({id,text})=>({id,text}))};
  const messages=[{role:'system',content:system},...history.map(m=>({role:m.role,content:m.text+(m.context==='选中内容'&&m.reference?'\n当时的选段参考：'+m.reference:'')+(m.proposal?'\n这轮修改建议：'+JSON.stringify(m.proposal.changes.map(c=>({id:c.id,before:c.before,after:c.after,state:c.state}))):'')+(m.article?'\n这轮稿件（编号仅以最新参考文稿为准）：'+JSON.stringify({title:m.article.document.title,markdown:m.article.markdown,state:m.article.state,kind:m.article.kind}):'')+(m.titles?'\n标题候选：'+m.titles.join('；'):'')})),{role:'user',content:JSON.stringify(input)}];
  if(messages.length>100||JSON.stringify(messages).length>120000)throw new Error('会话或引用内容过长，请新建对话或缩小范围；不会自动截断。');
- return {messages,units,reference,workingDocument:working,workingSelection};
+ return {messages,units,reference,workingDocument:working,workingSelection,originalReference};
 }
 
