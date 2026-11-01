@@ -5,7 +5,7 @@ import type { AIRevision, AISession } from './ai';
 export type Document = {title:string;slug:string;description:string;content:string;contentType:'markdown'|'blocknote';coverImage:string;tags:string[]};
 export type Remote = {id:string;document:Document;version:string;revision:number;publishedRevision:number;status:string;publishedAt:string|null;updatedAt:string;createdAt:string;publicSlug:string;deleted?:boolean};
 export type Note = {id:string;document:Document;displayDate:string;createdAt:string;updatedAt:string;base:Remote|null;syncedKey?:string;assets:Record<string,string>;conflict?:{remote:Remote|null;detectedAt:string};error?:string;archived?:boolean;trashedAt?:string;siteURL?:string;resourceWarning?:string;folderId?:string;parentId?:string;aiRevisions?:AIRevision[]};
-export type Folder = {id:string;name:string};
+export type Folder = {id:string;name:string;parentId?:string};
 export type Library = {schema:1;notes:Note[];folders?:Folder[];aiSessions?:Record<string,AISession>};
 export type Heading = {id:string;level:number;text:string;offset?:number};
 export function documentHeadings(doc:Document):Heading[]{
@@ -16,7 +16,8 @@ export function documentHeadings(doc:Document):Heading[]{
  }else{try{const walk=(blocks:any[])=>blocks.forEach(block=>{if(block.type==='heading'){const text=plainText({...doc,content:JSON.stringify([{content:block.content}])}).trim();if(text)result.push({id:block.id,level:Number(block.props?.level)||1,text});}if(Array.isArray(block.children))walk(block.children);});walk(JSON.parse(doc.content||'[]'));}catch{/* Original content stays available in the editor. */}}
  return result;
 }
-export function removeFolder(library:Library,id:string):Library{return {...library,folders:(library.folders||[]).filter(f=>f.id!==id),notes:library.notes.map(n=>n.folderId===id?{...n,folderId:undefined}:n)};}
+export function removeFolder(library:Library,id:string):Library{const parentId=library.folders?.find(f=>f.id===id)?.parentId;return {...library,folders:(library.folders||[]).filter(f=>f.id!==id).map(f=>f.parentId===id?{...f,parentId}:f),notes:library.notes.map(n=>n.folderId===id?{...n,folderId:parentId}:n)};}
+export function liveNotes(notes:Note[]):Note[]{return notes.filter(n=>!n.trashedAt);}
 export function trashNotes(library:Library,ids:string[],at:string):Library{const selected=new Set(ids);return {...library,notes:library.notes.map(n=>selected.has(n.id)&&!n.trashedAt?{...n,trashedAt:at}:n)};}
 export function restoreTrashedNote(library:Library,id:string):Library{return {...library,notes:library.notes.map(n=>{if(n.id!==id)return n;const {trashedAt,...rest}=n;return rest;})};}
 export function deleteTrashedNotes(library:Library,ids:string[]):Library{

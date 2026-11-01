@@ -2,11 +2,11 @@ import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 
 import { Collapse, usePresence } from './Motion';
 import { documentHeadings, type Document, type Heading } from './model';
 
-export const defaultLayout={list:true,listPinned:false,outline:false,settings:false,listWidth:260,outlineWidth:224,settingsWidth:264};
+export const defaultLayout={list:true,listPinned:true,outline:false,settings:false,listWidth:256,outlineWidth:224,settingsWidth:264};
 export type Layout=typeof defaultLayout;
 export function useLayout(){
- const [layout,setLayout]=useState<Layout>(()=>{try{const saved=JSON.parse(localStorage.getItem('baode-writer-layout')||'{}');const value={...defaultLayout};for(const key of ['list','listPinned','outline','settings'] as const)if(typeof saved[key]==='boolean'&&saved.version===4)value[key]=saved[key];for(const [key,min,max] of [['listWidth',220,360],['outlineWidth',180,260],['settingsWidth',220,360]] as const)if(Number.isFinite(saved[key]))value[key]=Math.max(min,Math.min(max,saved[key]));return value;}catch{return {...defaultLayout};}});
- useEffect(()=>{try{localStorage.setItem('baode-writer-layout',JSON.stringify({...layout,version:4}));}catch{/* Layout preferences do not affect durable document storage. */}},[layout]);
+ const [layout,setLayout]=useState<Layout>(()=>{try{const saved=JSON.parse(localStorage.getItem('baode-writer-layout')||'{}');const value={...defaultLayout};for(const key of ['list','listPinned','outline','settings'] as const)if(typeof saved[key]==='boolean'&&saved.version===5)value[key]=saved[key];for(const [key,min,max] of [['listWidth',220,360],['outlineWidth',180,260],['settingsWidth',220,360]] as const)if(Number.isFinite(saved[key]))value[key]=Math.max(min,Math.min(max,saved[key]));return value;}catch{return {...defaultLayout};}});
+ useEffect(()=>{try{localStorage.setItem('baode-writer-layout',JSON.stringify({...layout,version:5}));}catch{/* Layout preferences do not affect durable document storage. */}},[layout]);
  return [layout,setLayout] as const;
 }
 export function ResizeHandle({label,value,min,max,onChange,reverse=false,onReset,active=true}:{label:string;value:number;min:number;max:number;onChange:(value:number)=>void;reverse?:boolean;onReset:()=>void;active?:boolean}){

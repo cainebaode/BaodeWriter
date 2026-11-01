@@ -1,4 +1,22 @@
-import type { Library, Note } from './model';
+import { liveNotes, type Folder, type Library, type Note } from './model';
+
+export function folderDescendants(folders:Folder[],id:string):Set<string>{
+ const result=new Set([id]);let changed=true;
+ while(changed){changed=false;for(const folder of folders)if(folder.parentId&&result.has(folder.parentId)&&!result.has(folder.id)){result.add(folder.id);changed=true;}}
+ return result;
+}
+export function folderEntries(folders:Folder[]):{folder:Folder;path:string;depth:number}[]{
+ const walk=(parentId?:string,path:string[]=[]):ReturnType<typeof folderEntries>=>folders.filter(f=>f.parentId===parentId).flatMap(folder=>[{folder,path:[...path,folder.name].join(' / '),depth:path.length},...walk(folder.id,[...path,folder.name])]);
+ return walk();
+}
+export function saveFolder(library:Library,folder:Folder):Library{
+ const folders=library.folders||[],name=folder.name.trim(),parentId=folder.parentId||undefined;
+ if(!name||name.length>60)throw new Error('文件夹名称应为 1 至 60 个字。');
+ if(parentId&&!folders.some(f=>f.id===parentId))throw new Error('上级文件夹不存在。');
+ if(parentId&&folderDescendants(folders,folder.id).has(parentId))throw new Error('不能把文件夹移入自己或自己的子文件夹。');
+ if(folders.some(f=>f.id!==folder.id&&f.parentId===parentId&&f.name===name))throw new Error('此位置已有同名文件夹。');
+ const next={...folder,name,parentId};return {...library,folders:folders.some(f=>f.id===folder.id)?folders.map(f=>f.id===folder.id?next:f):[...folders,next]};
+}
 
 export type TreeNote={note:Note;children:TreeNote[];matches:boolean};
 export type TreeDragSource={kind:'notes';ids:string[]}|{kind:'folder';id:string};
@@ -14,6 +32,7 @@ export function descendants(notes:Note[],ids:string[]):Set<string>{
  return result;
 }
 export function noteTree(notes:Note[],matches?:Set<string>):TreeNote[]{
+ notes=liveNotes(notes);
  const visible=new Set(matches?[...matches].flatMap(id=>[id,...ancestors(notes,id).map(n=>n.id)]):notes.map(n=>n.id));
  const nodes=new Map(notes.filter(n=>visible.has(n.id)).map(note=>[note.id,{note,children:[],matches:!matches||matches.has(note.id)} as TreeNote]));
  const roots:TreeNote[]=[];
@@ -34,8 +53,9 @@ export function moveBranch(library:Library,ids:string[],target:string):Library{
 
 export function treeDropError(library:Library,source:TreeDragSource,target:TreeDrop):string{
  if(source.kind==='folder'){
-  if(!target.key.startsWith('folder:')||target.position==='inside')return '文件夹只能在文件夹之间调整顺序';
-  if(target.key==='folder:'+source.id)return '保持原位置';
+  if(target.key==='root')return '';
+  if(!target.key.startsWith('folder:'))return '文件夹只能移入文件夹或文稿顶层';
+  if(folderDescendants(library.folders||[],source.id).has(target.key.slice(7)))return '不能移到自己或自己的子文件夹';
   return library.folders?.some(f=>'folder:'+f.id===target.key)?'':'目标文件夹已不存在';
  }
  if(target.key==='root')return '';
@@ -51,8 +71,12 @@ export function dropTreeItem(library:Library,source:TreeDragSource,target:TreeDr
  const error=treeDropError(library,source,target);if(error)throw new Error(error);
  if(source.kind==='folder'){
   const folder=library.folders?.find(f=>f.id===source.id);if(!folder)throw new Error('文件夹已不存在');
-  const folders=library.folders!.filter(f=>f.id!==source.id),index=folders.findIndex(f=>'folder:'+f.id===target.key);
-  folders.splice(index+(target.position==='after'?1:0),0,folder);return {...library,folders};
+  const sibling=library.folders!.find(f=>'folder:'+f.id===target.key);
+  const parentId=target.key==='root'?undefined:target.position==='inside'?sibling!.id:sibling!.parentId;
+  const moved=saveFolder(library,{...folder,parentId});
+  if(target.position==='inside'||target.key==='root')return moved;
+  const folders=moved.folders!.filter(f=>f.id!==source.id),index=folders.findIndex(f=>'folder:'+f.id===target.key);
+  folders.splice(index+(target.position==='after'?1:0),0,moved.folders!.find(f=>f.id===source.id)!);return {...moved,folders};
  }
  if(target.position==='inside'||!target.key.startsWith('note:'))return moveBranch(library,source.ids,target.key);
  const sibling=library.notes.find(n=>'note:'+n.id===target.key)!;

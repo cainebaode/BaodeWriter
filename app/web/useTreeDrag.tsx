@@ -15,7 +15,7 @@ export function useTreeDrag({library,viewport,disabled,onDrop,onExpand}:{library
   let target:TreeDrop|null=null,hint='移到目标文稿或文件夹上，Esc 取消',valid=false;
   if(element&&viewport.current?.contains(element)){
    const key=element.dataset.treeTarget!,rect=element.getBoundingClientRect();let position:TreeDrop['position']='inside';
-   if(d.source.kind==='folder')position=d.y<rect.top+rect.height/2?'before':'after';
+   if(d.source.kind==='folder'&&key.startsWith('folder:'))position=d.y<rect.top+9?'before':d.y>rect.bottom-9?'after':'inside';
    else if(key.startsWith('note:'))position=d.y<rect.top+9?'before':d.y>rect.bottom-9?'after':'inside';
    target={key,position};const error=treeDropError(library,d.source,target);valid=!error;
    const title=key==='root'?'文稿顶层':key.startsWith('folder:')?library.folders?.find(f=>'folder:'+f.id===key)?.name:library.notes.find(n=>'note:'+n.id===key)?.document.title||'无标题文稿';
@@ -53,5 +53,5 @@ export function useTreeDrag({library,viewport,disabled,onDrop,onExpand}:{library
   onPointerCancel:()=>finish(false),onLostPointerCapture:()=>finish(false),
  };}
  const preview=feedback&&createPortal(<div className={`tree-drag-preview ${feedback.phase} ${feedback.valid?'valid':'invalid'}`} style={{transform:`translate3d(${feedback.x}px,${feedback.y}px,0)`}}><div><Icon name={feedback.kind}/><strong>{feedback.title}</strong>{feedback.count>1&&<b>{feedback.count} 篇</b>}</div><p>{feedback.hint}</p></div>,document.body);
- return {bind,rowClass,preview,dragging:!!source,canDropRoot:source?.kind==='notes',isDragging:()=>!!drag.current?.active};
+ return {bind,rowClass,preview,dragging:!!source,canDropRoot:!!source,isDragging:()=>!!drag.current?.active};
 }

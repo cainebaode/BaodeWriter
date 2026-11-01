@@ -192,6 +192,20 @@ enum NativeTests {
         try rejects("duplicate folder IDs rejected") { _ = try organized.save(duplicateFolders) }
         var missingFolder = grouped; missingFolder["folders"] = [] as [[String: String]]
         try rejects("missing folder membership rejected before save") { _ = try organized.save(missingFolder) }
+        var nestedFolders = grouped
+        nestedFolders["folders"] = [["id":"folder-one", "name":"日常记录"], ["id":"folder-child", "name":"子文件夹", "parentId":"folder-one"], ["id":"folder-deep", "name":"更深一层", "parentId":"folder-child"]]
+        groupedNotes[0]["folderId"] = "folder-deep"; nestedFolders["notes"] = groupedNotes
+        _ = try organized.save(nestedFolders)
+        let nestedBackup = temporary.appendingPathComponent("nested.baodewriter")
+        _ = try organized.exportBackup(to: nestedBackup); _ = try organizedRestore.restoreBackup(from: nestedBackup)
+        let nestedRestored = try organizedRestore.load()["library"] as! [String: Any]
+        try check((nestedRestored["folders"] as? [[String: String]])?.last?["parentId"] == "folder-child", "nested folder parents survive backup and restore")
+        try check((nestedRestored["notes"] as? [[String: Any]])?.first?["folderId"] as? String == "folder-deep", "nested folder membership survives backup and restore")
+        var badFolders = nestedFolders
+        badFolders["folders"] = [["id":"folder-one", "name":"根", "parentId":"folder-child"], ["id":"folder-child", "name":"子", "parentId":"folder-one"], ["id":"folder-deep", "name":"深", "parentId":"folder-child"]]
+        try rejects("cyclic folder hierarchy rejected before save") { _ = try organized.save(badFolders) }
+        badFolders["folders"] = [["id":"folder-one", "name":"根"], ["id":"folder-child", "name":"子", "parentId":"missing"], ["id":"folder-deep", "name":"深", "parentId":"folder-child"]]
+        try rejects("missing folder parent rejected before save") { _ = try organized.save(badFolders) }
         try check(try AIService.endpoint("https://api.deepseek.com/").absoluteString == "https://api.deepseek.com/chat/completions", "AI endpoint appended once")
         try check(try AIService.endpoint("https://example.com/v1/chat/completions").path == "/v1/chat/completions", "complete AI endpoint retained")
         try check(try AIService.endpoint("http://127.0.0.1:1234/v1").path == "/v1/chat/completions", "isolated AI fixture endpoint")

@@ -8,10 +8,12 @@
 
 | 位置 | 用途与关系 |
 | --- | --- |
+| [appearance.test.ts](appearance.test.ts) | 外观偏好恢复与损坏值回退 |
 | [ai.test.ts](ai.test.ts) | AI 提案与写入边界 |
 | [article.test.ts](article.test.ts) | 文章生成、解析和接受 |
 | [model.test.ts](model.test.ts) | 文稿、媒体与日期模型 |
 | [trash.test.ts](trash.test.ts) | 删除与恢复 |
+| [library.test.ts](library.test.ts) | 子文件夹、层级编号、同步范围与废纸篓可见性 |
 | [tree.test.ts](tree.test.ts) | 父子结构与移动 |
 | [workspace.test.ts](workspace.test.ts) | 标签和分栏 |
 | [writing.test.ts](writing.test.ts) | 持续写作及局部改写 |

@@ -5,6 +5,11 @@ import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+LIBRARY_MODE = "--library" in sys.argv
+POSTS = {}
+FAIL_ONCE = set()
+AI_CONFIGURATION_CALLS = []
+
 PIXEL = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a4YoAAAAASUVORK5CYII=")
 
 
@@ -28,13 +33,18 @@ class Fixture(BaseHTTPRequestHandler):
         return "writer-native-test=fixture" in self.headers.get("Cookie", "")
 
     def do_GET(self):
-        if self.path == "/admin/login":
+        if self.path == "/api/desktop/posts/fixture-ai-configurations":
+            self.send(200, json.dumps({"calls": AI_CONFIGURATION_CALLS}).encode())
+        elif self.path == "/admin/login":
             self.send(200, b"<html><body>Fixture login<script>setTimeout(()=>history.pushState({},'', '/admin'),250)</script></body></html>", "text/html", {"Set-Cookie": "writer-native-test=fixture; Path=/; HttpOnly; SameSite=Lax"})
         elif self.path == "/admin":
             self.send(200, b"<html><body>Native fixture signed in</body></html>", "text/html")
         elif self.path == "/api/desktop/posts":
             result = {"cookie": self.authorized(), "origin": self.headers.get("Origin") == f"http://127.0.0.1:{self.server.server_port}"}
-            self.send(200 if result["cookie"] else 401, json.dumps(result).encode())
+            if LIBRARY_MODE:
+                self.send(200, json.dumps({"posts": list(POSTS.values())}).encode())
+            else:
+                self.send(200 if result["cookie"] else 401, json.dumps(result).encode())
         elif self.path == "/uploads/pixel.png":
             self.send(200, PIXEL, "image/png")
         elif self.path == "/redirect-out":
@@ -44,6 +54,20 @@ class Fixture(BaseHTTPRequestHandler):
 
     def do_POST(self):
         data = self.rfile.read(int(self.headers.get("Content-Length", "0")))
+        if self.path in ["/ai/configuration-a/chat/completions", "/ai/configuration-b/chat/completions"]:
+            route = "a" if "/configuration-a/" in self.path else "b"
+            model = "fixture-writing" if route == "a" else "fixture-rewrite"
+            body = json.loads(data)
+            if self.headers.get("Authorization") != f"Bearer isolated-configuration-key-{route}" or self.headers.get("Cookie") or self.headers.get("Origin") or body.get("model") != model or body.get("stream") is not False:
+                self.send(401, b'{}')
+                return
+            AI_CONFIGURATION_CALLS.append({"route": route, "model": model, "messageCount": len(body["messages"])})
+            prompt = body["messages"][-1]["content"]
+            if "等待切换验证" in prompt:
+                time.sleep(2)
+            text = "连接成功" if prompt == "请只回复：连接成功" else json.dumps({"reply": f"已由配置 {route.upper()} · {model} 回复。"}, ensure_ascii=False)
+            self.send(200, json.dumps({"choices": [{"finish_reason": "stop", "message": {"content": text}}]}, ensure_ascii=False).encode())
+            return
         if self.path.startswith("/ai/") and self.path.endswith("/chat/completions"):
             if self.headers.get("Authorization") != "Bearer isolated-fixture-key" or self.headers.get("Cookie") or self.headers.get("Origin"):
                 self.send(401, b'{}')
@@ -92,17 +116,38 @@ class Fixture(BaseHTTPRequestHandler):
             response = {"choices": [{"finish_reason": "length" if model == "truncated" else "stop", "message": {"role": "assistant", "content": text}}]}
             self.send(200, json.dumps(response, ensure_ascii=False).encode())
             return
-        if not self.authorized():
+        if not LIBRARY_MODE and not self.authorized():
             self.send(401, b'{}')
             return
         if self.path == "/api/desktop/posts":
-            self.send(200, json.dumps(json.loads(data)).encode())
+            body = json.loads(data)
+            if LIBRARY_MODE:
+                if body.get("fixtureReset"):
+                    POSTS.clear()
+                    FAIL_ONCE.clear()
+                    self.send(200, b'{"ok":true}')
+                    return
+                note_id = body["id"]
+                if note_id == "fixture-md" and note_id not in FAIL_ONCE:
+                    FAIL_ONCE.add(note_id)
+                    self.send(503, b'{"error":"Isolated retry fixture"}')
+                    return
+                old = POSTS.get(note_id)
+                if old and body.get("baseVersion") != old["version"]:
+                    self.send(409, json.dumps({"remote": old}).encode())
+                    return
+                revision = (old or {}).get("revision", 0) + 1
+                remote = {"id": note_id, "document": {**body["document"], "slug": note_id}, "version": f"v{revision}", "revision": revision, "publishedRevision": revision, "status": "PUBLISHED", "publishedAt": body["displayDate"], "updatedAt": "2026-10-30T12:00:00.000Z", "createdAt": "2026-10-30T12:00:00.000Z", "publicSlug": note_id}
+                POSTS[note_id] = remote
+                self.send(200, json.dumps(remote).encode())
+            else:
+                self.send(200, json.dumps(body).encode())
         elif self.path == "/api/admin/upload" and PIXEL in data and b'name="file"' in data and "multipart/form-data" in self.headers.get("Content-Type", ""):
             self.send(200, b'{"url":"/uploads/pixel.png"}')
         else:
             self.send(400, b'{}')
 
 
-server = ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1]) if len(sys.argv) > 1 else 0), Fixture)
+server = ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 0), Fixture)
 print(f"http://127.0.0.1:{server.server_port}", flush=True)
 server.serve_forever()

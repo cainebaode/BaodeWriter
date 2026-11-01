@@ -11,15 +11,20 @@ final class ChromeButton: NSButton {
     }
     override func mouseEntered(with event: NSEvent) { hovered = true; needsDisplay = true }
     override func mouseExited(with event: NSEvent) { hovered = false; needsDisplay = true }
+    var searchStyle = false
     override func draw(_ dirtyRect: NSRect) {
         let selected = state == .on
-        if selected || hovered || isHighlighted {
-            (selected ? NSColor(srgbRed: 234.0/255, green: 219.0/255, blue: 209.0/255, alpha: 1) : NSColor(srgbRed: 222.0/255, green: 220.0/255, blue: 213.0/255, alpha: 1)).setFill()
-            NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8).fill()
+        if selected || hovered || isHighlighted || searchStyle {
+            NSColor.labelColor.withAlphaComponent(selected ? 0.10 : searchStyle ? 0.04 : 0.06).setFill()
+            NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6).fill()
         }
-        let tint = selected ? NSColor(srgbRed: 128.0/255, green: 92.0/255, blue: 73.0/255, alpha: 1) : NSColor(srgbRed: 105.0/255, green: 112.0/255, blue: 109.0/255, alpha: 1)
-        if contentTintColor != tint { contentTintColor = tint }
-        super.draw(dirtyRect)
+        contentTintColor = .secondaryLabelColor
+        if searchStyle {
+            let style: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 12), .foregroundColor: NSColor.secondaryLabelColor]
+            NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)?.draw(in: NSRect(x: 10, y: 7, width: 14, height: 14))
+            ("搜索文稿" as NSString).draw(at: NSPoint(x: 31, y: 6), withAttributes: style)
+            ("⌘ K" as NSString).draw(at: NSPoint(x: bounds.width - 35, y: 7), withAttributes: [.font: NSFont.systemFont(ofSize: 10), .foregroundColor: NSColor.tertiaryLabelColor])
+        } else { super.draw(dirtyRect) }
     }
 }
 
@@ -71,7 +76,7 @@ final class LocalScheme: NSObject, WKURLSchemeHandler {
 }
 
 @MainActor
-final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandlerWithReply, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegate, NSSearchFieldDelegate, NSMenuItemValidation {
+final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandlerWithReply, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegate, NSMenuItemValidation {
     let store: WriterStore
     let webRoot: URL
     lazy var ai = AIService(root: store.root)
@@ -89,14 +94,15 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     var editorTest = false
     var workspaceTest = false
     var trashTest = false
+    var libraryTest = false
+    var aiConfigurationsTest = false
     var testEvidence: URL?
     var websiteDataStore = WKWebsiteDataStore.default()
-    let chromeSearch = NSSearchField()
-    let chromeSearchButton = ChromeButton(title: "搜索", target: nil, action: nil)
-    let chromeFocus = ChromeButton(title: "专注", target: nil, action: nil)
-    let chromeControls = NSView(frame: NSRect(x: 0, y: 0, width: 500, height: 28))
-    let chromeSearchWrap = NSView(frame: NSRect(x: 360, y: 0, width: 0, height: 28))
-    var chromeSearchOpen = false
+    let chromeSearchButton = ChromeButton(title: "搜索文稿", target: nil, action: nil)
+    let chromeFocus = ChromeButton(title: "", target: nil, action: nil)
+    let chromeLibrary = ChromeButton(title: "", target: nil, action: nil)
+    let chromeAI = ChromeButton(title: "写作助手", target: nil, action: nil)
+    let chromeControls = NSView(frame: NSRect(x: 0, y: 0, width: 132, height: 28))
     var chromeHasNote = false
     var chromeBusy = false
 
@@ -118,7 +124,7 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
         window.title = "饱得写作"
         window.titleVisibility = .hidden
         window.minSize = NSSize(width: 920, height: 650)
-        window.backgroundColor = NSColor(srgbRed: 232.0/255, green: 231.0/255, blue: 227.0/255, alpha: 1)
+        window.backgroundColor = .white
         window.appearance = NSAppearance(named: .aqua)
         window.titlebarAppearsTransparent = true
         window.titlebarSeparatorStyle = .none
@@ -136,6 +142,7 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
         webView.load(URLRequest(url: URL(string: "writer-app://local/index.html")!))
         if bridgeTest || editorTest {
             DispatchQueue.main.asyncAfter(deadline: .now() + 90) {
+                try? self.clearAIConfigurationFixtures()
                 fputs("WEBKIT TEST FAILED: timed out waiting for native/WebKit round trip\n", stderr)
                 exit(1)
             }
@@ -146,6 +153,7 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
         let bar = NSMenu()
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "关于饱得写作", action: #selector(showAbout), keyEquivalent: "")
+        let settings = NSMenuItem(title: "设置…", action: #selector(openSettings), keyEquivalent: ","); settings.target = self; appMenu.addItem(settings)
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "隐藏饱得写作", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
@@ -173,78 +181,56 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     }
 
     private func makeToolbar() {
-        let field = chromeSearch
-        field.placeholderString = "搜索文稿"; field.controlSize = .small
-        field.font = .systemFont(ofSize: 12); field.delegate = self
-        field.sendsSearchStringImmediately = true; field.isEnabled = false
-        field.isBezeled = false; field.isBordered = false; field.drawsBackground = false; field.focusRingType = .none
-        (field.cell as? NSSearchFieldCell)?.searchButtonCell = nil
-        field.textColor = NSColor(srgbRed: 100.0/255, green: 107.0/255, blue: 107.0/255, alpha: 1)
-        field.placeholderAttributedString = NSAttributedString(string: "搜索文稿", attributes: [.foregroundColor: NSColor(srgbRed: 139.0/255, green: 146.0/255, blue: 144.0/255, alpha: 1), .font: NSFont.systemFont(ofSize: 12)])
-        chromeSearchWrap.wantsLayer = true
-        chromeSearchWrap.layer?.backgroundColor = NSColor(srgbRed: 246.0/255, green: 245.0/255, blue: 240.0/255, alpha: 1).cgColor
-        chromeSearchWrap.layer?.cornerRadius = 8; chromeSearchWrap.layer?.masksToBounds = true
-        chromeSearchWrap.alphaValue = 0; chromeSearchWrap.isHidden = true
-        field.translatesAutoresizingMaskIntoConstraints = false; chromeSearchWrap.addSubview(field)
-        NSLayoutConstraint.activate([field.widthAnchor.constraint(equalToConstant: 344), field.heightAnchor.constraint(equalToConstant: 22), field.trailingAnchor.constraint(equalTo: chromeSearchWrap.trailingAnchor, constant: -8), field.centerYAnchor.constraint(equalTo: chromeSearchWrap.centerYAnchor)])
-        chromeControls.addSubview(chromeSearchWrap)
-        for (button, x) in [(chromeSearchButton, 366.0), (chromeFocus, 436.0)] {
-            button.frame = NSRect(x: x, y: 0, width: 64, height: 28)
+        for button in [chromeSearchButton, chromeFocus, chromeLibrary, chromeAI] {
             button.isBordered = false; button.imagePosition = .imageLeading
             button.font = .systemFont(ofSize: 12); button.controlSize = .small
             button.setButtonType(.momentaryChange); button.isEnabled = false; button.target = self
-            chromeControls.addSubview(button)
         }
-        chromeSearchButton.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
-        chromeSearchButton.action = #selector(toggleChromeSearch); chromeSearchButton.toolTip = "搜索文稿 ⌘F"
-        chromeFocus.image = NSImage(systemSymbolName: "viewfinder", accessibilityDescription: "专注模式")
-        chromeFocus.setButtonType(.toggle); chromeFocus.target = self; chromeFocus.action = #selector(toggleChromeFocus)
-        chromeFocus.setAccessibilityLabel("专注模式")
-        NSLayoutConstraint.activate([chromeControls.widthAnchor.constraint(equalToConstant: 500), chromeControls.heightAnchor.constraint(equalToConstant: 28)])
-        let toolbar = NSToolbar(identifier: "WriterTopbar")
+        chromeSearchButton.searchStyle = true
+        chromeSearchButton.frame = NSRect(x: 0, y: 0, width: 268, height: 28)
+        chromeSearchButton.action = #selector(focusSearch); chromeSearchButton.toolTip = "搜索文稿 ⌘K / ⌘F"
+        chromeLibrary.frame = NSRect(x: 0, y: 0, width: 28, height: 28)
+        chromeLibrary.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: nil)
+        chromeLibrary.action = #selector(toggleLibrary); chromeLibrary.setAccessibilityLabel("切换文稿栏")
+        chromeFocus.frame = NSRect(x: 0, y: 0, width: 28, height: 28)
+        chromeFocus.image = NSImage(systemSymbolName: "viewfinder", accessibilityDescription: nil)
+        chromeFocus.action = #selector(toggleChromeFocus); chromeFocus.setAccessibilityLabel("专注模式")
+        chromeAI.frame = NSRect(x: 38, y: 0, width: 94, height: 28)
+        chromeAI.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)
+        chromeAI.action = #selector(openAI)
+        chromeControls.addSubview(chromeFocus); chromeControls.addSubview(chromeAI)
+        let toolbar = NSToolbar(identifier: "WriterRefinedTopbar")
         toolbar.delegate = self; toolbar.displayMode = .iconOnly; toolbar.allowsUserCustomization = false
         toolbar.showsBaselineSeparator = false
-        window.toolbarStyle = .unifiedCompact; window.toolbar = toolbar
+        toolbar.centeredItemIdentifiers = [NSToolbarItem.Identifier("writer.search")]
+        window.toolbarStyle = .unified; window.toolbar = toolbar
         window.titlebarAppearsTransparent = true; window.titlebarSeparatorStyle = .none
     }
 
-    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [NSToolbarItem.Identifier("writer.controls"), .flexibleSpace] }
-    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [.flexibleSpace, NSToolbarItem.Identifier("writer.controls")] }
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { toolbarDefaultItemIdentifiers(toolbar) }
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [NSToolbarItem.Identifier("writer.library"), .flexibleSpace, NSToolbarItem.Identifier("writer.search"), .flexibleSpace, NSToolbarItem.Identifier("writer.controls")] }
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        guard identifier.rawValue == "writer.controls" else { return nil }
-        let item = NSToolbarItem(itemIdentifier: identifier); item.label = "搜索与专注"; item.view = chromeControls; item.isBordered = false; return item
+        let item = NSToolbarItem(itemIdentifier: identifier); item.isBordered = false
+        switch identifier.rawValue {
+        case "writer.library": item.label = "文稿栏"; item.view = chromeLibrary
+        case "writer.search": item.label = "搜索文稿"; item.view = chromeSearchButton
+        case "writer.controls": item.label = "写作工具"; item.view = chromeControls
+        default: return nil
+        }
+        return item
     }
     private func dispatchChrome(_ action: String, value: String = "") {
         guard webView.url?.scheme == "writer-app", webView.url?.host == "local" else { return }
         Task { try? await webView.callAsyncJavaScript("window.dispatchEvent(new CustomEvent('writer-chrome',{detail:{action,value}}));", arguments: ["action":action,"value":value], in: nil, contentWorld: .page) }
     }
-    @objc private func focusSearch() { setChromeSearchOpen(true) }
-    @objc private func toggleChromeSearch() { setChromeSearchOpen(!chromeSearchOpen) }
-    private func setChromeSearchOpen(_ open: Bool) {
-        chromeSearchOpen = open; chromeSearchWrap.isHidden = false
-        chromeSearchButton.state = open || !chromeSearch.stringValue.isEmpty ? .on : .off
-        let frame = NSRect(x: open ? 0 : 360, y: 0, width: open ? 360 : 0, height: 28)
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.2
-            chromeSearchWrap.animator().frame = frame; chromeSearchWrap.animator().alphaValue = open ? 1 : 0
-        } completionHandler: { [weak self] in
-            Task { @MainActor in
-                guard let self else { return }
-                if !self.chromeSearchOpen { self.chromeSearchWrap.isHidden = true }
-            }
-        }
-        window.makeFirstResponder(open ? chromeSearch : webView)
-    }
-    @objc private func toggleChromeFocus() { if chromeSearchOpen { setChromeSearchOpen(false) }; dispatchChrome("toggleFocus") }
+    @objc private func focusSearch() { window.makeFirstResponder(webView); dispatchChrome("searchOpen") }
+    @objc private func toggleChromeFocus() { dispatchChrome("toggleFocus") }
+    @objc private func toggleLibrary() { dispatchChrome("toggleLibrary") }
+    @objc private func openAI() { dispatchChrome("openAI") }
+    @objc private func openSettings() { dispatchChrome("appSettings") }
     @objc private func documentCommand(_ sender: NSMenuItem) { if let command = sender.representedObject as? String { dispatchChrome(command) } }
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         menuItem.action == #selector(documentCommand(_:)) ? chromeHasNote && !chromeBusy : true
-    }
-    func controlTextDidBeginEditing(_ notification: Notification) { dispatchChrome("searchOpen") }
-    func controlTextDidChange(_ notification: Notification) { dispatchChrome("search", value: chromeSearch.stringValue) }
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        guard commandSelector == #selector(NSResponder.cancelOperation(_:)) else { return false }
-        setChromeSearchOpen(false); return true
     }
     private var toolbarInset: Double { window.styleMask.contains(.fullScreen) ? 0 : max(0, webView.bounds.height-window.contentLayoutRect.height) }
     func windowDidResize(_ notification: Notification) { dispatchChrome("windowMetrics", value: String(toolbarInset)) }
@@ -253,7 +239,7 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
 
     @objc private func showAbout() {
         let alert = NSAlert()
-        alert.messageText = "饱得写作 0.1.0"
+        alert.messageText = "饱得写作 \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")"
         alert.informativeText = "本地记录，随心发布。\n\n数据目录：\n\(store.root.path)\n\n开源组件与许可证见安装包中的 THIRD-PARTY-NOTICES。"
         alert.runModal()
     }
@@ -294,10 +280,14 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
         case "windowState":
             chromeHasNote = args["hasNote"] as? Bool == true; chromeBusy = args["busy"] as? Bool == true
             let ready = args["ready"] as? Bool == true, focused = args["focus"] as? Bool == true
-            chromeSearch.isEnabled = ready; chromeSearchButton.isEnabled = ready; chromeFocus.isEnabled = ready
-            if let query = args["query"] as? String, query != chromeSearch.stringValue { chromeSearch.stringValue = query }
-            chromeSearchButton.state = chromeSearchOpen || !chromeSearch.stringValue.isEmpty ? .on : .off
+            for button in [chromeSearchButton, chromeFocus, chromeLibrary, chromeAI] { button.isEnabled = ready }
+            chromeSearchButton.state = args["searchOpen"] as? Bool == true ? .on : .off
             chromeFocus.state = focused ? .on : .off; chromeFocus.toolTip = focused ? "退出专注" : "专注模式"
+            chromeAI.state = args["aiOpen"] as? Bool == true ? .on : .off
+            window.appearance = args["appearance"] as? String == "system" ? nil : NSAppearance(named: args["dark"] as? Bool == true ? .darkAqua : .aqua)
+            if let hex = args["paper"] as? String, hex.count == 7, let rgb = UInt32(hex.dropFirst(), radix: 16) {
+                window.backgroundColor = NSColor(srgbRed: Double((rgb >> 16) & 255)/255, green: Double((rgb >> 8) & 255)/255, blue: Double(rgb & 255)/255, alpha: 1)
+            }
             return ["ok": true, "toolbarInset": toolbarInset]
         case "aiLoad": return try ai.load()
         case "aiSave": return try ai.save(args)
@@ -464,9 +454,23 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
         if editorTest, webView === self.webView {
             Task {
                 do {
-                    let result = try await webView.callAsyncJavaScript(trashTest ? NativeEditorTests.trashScript : workspaceTest ? NativeEditorTests.workspaceScript : NativeEditorTests.script, arguments: ["site":store.siteURL.absoluteString], in: nil, contentWorld: .page)
-                    print("PASS: Native editor \(trashTest ? "trash" : workspaceTest ? "workspace" : "AI") scenarios: \(result ?? "none")")
+                    let result = try await webView.callAsyncJavaScript(aiConfigurationsTest ? NativeEditorTests.aiConfigurationsScript : libraryTest ? NativeEditorTests.libraryScript : trashTest ? NativeEditorTests.trashScript : workspaceTest ? NativeEditorTests.workspaceScript : NativeEditorTests.script, arguments: ["site":store.siteURL.absoluteString], in: nil, contentWorld: .page)
+                    print("PASS: Native editor \(aiConfigurationsTest ? "AI configurations" : libraryTest ? "library" : trashTest ? "trash" : workspaceTest ? "workspace" : "AI") scenarios: \(result ?? "none")")
                     await saveTestScreenshot()
+                    if aiConfigurationsTest {
+                        _ = try await webView.callAsyncJavaScript("document.querySelector('[aria-label=\"关闭 AI 设置\"]')?.click(); await new Promise(resolve=>setTimeout(resolve,250)); return true;", arguments: [:], in: nil, contentWorld: .page)
+                        await saveTestScreenshot(suffix: "-assistant")
+                        window.setContentSize(NSSize(width: 1000, height: 850))
+                        _ = try await webView.callAsyncJavaScript("await new Promise(resolve=>setTimeout(resolve,350)); const panel=document.querySelector('.ai-panel').getBoundingClientRect(); for(const element of document.querySelectorAll('.ai-configuration select,.ai-configuration>button')){const r=element.getBoundingClientRect();if(r.left<panel.left||r.right>panel.right||r.right>window.innerWidth)throw new Error('AI configuration switcher overflows its panel');} return true;", arguments: [:], in: nil, contentWorld: .page)
+                        await saveTestScreenshot(suffix: "-narrow")
+                        print("PASS: AI configuration switcher fits a 1000-point window.")
+                        try clearAIConfigurationFixtures()
+                        print("PASS: Isolated AI configuration keys removed.")
+                    }
+                    if libraryTest {
+                        _ = try await webView.callAsyncJavaScript("document.querySelector('.dialog>header button')?.click(); await new Promise(resolve=>setTimeout(resolve,250)); return true;", arguments: [:], in: nil, contentWorld: .page)
+                        await saveTestScreenshot(suffix: "-numbering")
+                    }
                     if workspaceTest {
                         window.setContentSize(NSSize(width: 1000, height: 850))
                         _ = try await webView.callAsyncJavaScript(NativeEditorTests.narrowWorkspaceScript, arguments: [:], in: nil, contentWorld: .page)
@@ -478,7 +482,7 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
                         print("PASS: \(navigation ?? "document tree navigation")")
 
                     }
-                    if !workspaceTest && !trashTest {
+                    if !workspaceTest && !trashTest && !libraryTest && !aiConfigurationsTest {
                         window.setContentSize(NSSize(width: 1000, height: 850))
                         _ = try await webView.callAsyncJavaScript(NativeEditorTests.narrowAIScript, arguments: [:], in: nil, contentWorld: .page)
                         await saveTestScreenshot(suffix: "-narrow")
@@ -487,6 +491,7 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
                     NSApp.terminate(nil)
                 } catch {
                     await saveTestScreenshot()
+                    try? clearAIConfigurationFixtures()
                     fputs("EDITOR TEST FAILED: \(error.localizedDescription) \((error as NSError).userInfo)\n", stderr)
                     exit(1)
                 }
@@ -509,10 +514,19 @@ final class WriterApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
         finishLoginIfReady(webView)
     }
 
+    private func clearAIConfigurationFixtures() throws {
+        guard aiConfigurationsTest else { return }
+        let configurations = try ai.load()["configurations"] as? [[String: String]] ?? []
+        for configuration in configurations { if let id = configuration["id"] { _ = try ai.remove(id) } }
+    }
+
     private func saveTestScreenshot(suffix: String = "") async {
         guard let evidence = testEvidence else { return }
         let url = suffix.isEmpty ? evidence : evidence.deletingLastPathComponent().appendingPathComponent(evidence.deletingPathExtension().lastPathComponent + suffix + ".png")
         do {
+            if libraryTest || aiConfigurationsTest {
+                _ = try await webView.callAsyncJavaScript("await new Promise(resolve=>{requestAnimationFrame(()=>requestAnimationFrame(resolve));setTimeout(resolve,250);}); await new Promise(resolve=>setTimeout(resolve,350)); return true;", arguments: [:], in: nil, contentWorld: .page)
+            }
             let image = try await webView.takeSnapshot(configuration: nil)
             guard let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff), let png = bitmap.representation(using: .png, properties: [:]) else { return }
             try png.write(to: url)
@@ -608,15 +622,17 @@ enum Entry {
         do {
             if args.contains("--self-test") { try NativeTests.run(); return }
             let workspaceTest = args.contains("--self-test-workspace")
+            let libraryTest = args.contains("--self-test-library")
+            let aiConfigurationsTest = args.contains("--self-test-ai-configurations")
             let trashTest = args.contains("--self-test-trash")
-            let editorTest = args.contains("--self-test-editor") || workspaceTest || trashTest
+            let editorTest = args.contains("--self-test-editor") || workspaceTest || trashTest || libraryTest || aiConfigurationsTest
             let bridgeTestRoot = args.contains("--self-test-webkit") || args.contains("--self-test-network") || editorTest ? try NativeTests.makeBridgeFixture() : nil
             let defaultRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("BaodeWriter", isDirectory: true)
             let root = bridgeTestRoot?.appendingPathComponent("data") ?? option("--data-dir").map { URL(fileURLWithPath: $0, isDirectory: true) } ?? defaultRoot
             let webRoot = (editorTest ? nil : bridgeTestRoot?.appendingPathComponent("web")) ?? option("--web-root").map { URL(fileURLWithPath: $0, isDirectory: true) } ?? Bundle.main.resourceURL!.appendingPathComponent("Web", isDirectory: true)
             let store = try WriterStore(root: root, siteOverride: option("--site"))
             if args.contains("--self-test-network") || editorTest, !(store.siteURL.scheme == "http" && store.siteURL.host == "127.0.0.1") { throw WriterError("网络自测仅允许显式 --site http://127.0.0.1:<测试端口>。") }
-            if editorTest { try NativeEditorTests.seed(store) }
+            if editorTest { try NativeEditorTests.seed(store, library: libraryTest) }
             let libraryLock = try LibraryLock(root: root)
             let app = NSApplication.shared
             let delegate = WriterApp(store: store, webRoot: webRoot)
@@ -625,6 +641,8 @@ enum Entry {
             delegate.editorTest = editorTest
             delegate.workspaceTest = workspaceTest
             delegate.trashTest = trashTest
+            delegate.libraryTest = libraryTest
+            delegate.aiConfigurationsTest = aiConfigurationsTest
             delegate.testEvidence = option("--evidence").map { URL(fileURLWithPath: $0) }
             if bridgeTestRoot != nil { delegate.websiteDataStore = .nonPersistent() }
             app.delegate = delegate; app.setActivationPolicy(.regular)

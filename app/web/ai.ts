@@ -3,14 +3,34 @@ import { mediaURLs, type Document } from './model';
 
 export type AIConfiguration={id:string;provider:string;name:string;baseURL:string;model:string};
 export type AISettings={configurations:AIConfiguration[];defaultID:string};
-export const providers=[
- {id:'deepseek',name:'DeepSeek',baseURL:'https://api.deepseek.com',model:'deepseek-flash',docs:'https://api-docs.deepseek.com/'},
- {id:'qwen',name:'通义千问',baseURL:'https://dashscope.aliyuncs.com/compatible-mode/v1',model:'qwen-plus',docs:'https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope'},
- {id:'doubao',name:'豆包',baseURL:'https://ark.cn-beijing.volces.com/api/v3',model:'',docs:'https://www.volcengine.com/docs/82379'},
- {id:'kimi',name:'Kimi',baseURL:'https://api.moonshot.cn/v1',model:'kimi-k2.5',docs:'https://platform.moonshot.cn/docs'},
- {id:'glm',name:'智谱',baseURL:'https://open.bigmodel.cn/api/paas/v4',model:'glm-5.3',docs:'https://docs.bigmodel.cn/cn/guide/develop/openai/introduction'},
- {id:'minimax',name:'MiniMax',baseURL:'https://api.minimaxi.com/v1',model:'MiniMax-M2.7',docs:'https://platform.minimaxi.com/docs'},
- {id:'custom',name:'自定义兼容接口',baseURL:'',model:'',docs:''},
+export const providers:{id:string;name:string;group:string;baseURL:string;model:string;docs:string;hint?:string;urlPlaceholder?:string}[]=[
+ {id:'deepseek',name:'DeepSeek',group:'国内服务商',baseURL:'https://api.deepseek.com',model:'deepseek-flash',docs:'https://api-docs.deepseek.com/'},
+ {id:'qwen',name:'通义千问',group:'国内服务商',baseURL:'https://dashscope.aliyuncs.com/compatible-mode/v1',model:'qwen-plus',docs:'https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope',hint:'请使用与密钥地域一致的百炼接口地址。'},
+ {id:'doubao',name:'豆包',group:'国内服务商',baseURL:'https://ark.cn-beijing.volces.com/api/v3',model:'',docs:'https://www.volcengine.com/docs/82379',hint:'模型名称填写已开通的模型 ID 或推理接入点 ID。'},
+ {id:'kimi',name:'Kimi',group:'国内服务商',baseURL:'https://api.moonshot.cn/v1',model:'kimi-k2.5',docs:'https://platform.moonshot.cn/docs'},
+ {id:'glm',name:'智谱',group:'国内服务商',baseURL:'https://open.bigmodel.cn/api/paas/v4',model:'glm-5.3',docs:'https://docs.bigmodel.cn/cn/guide/develop/openai/introduction'},
+ {id:'minimax',name:'MiniMax',group:'国内服务商',baseURL:'https://api.minimaxi.com/v1',model:'MiniMax-M2.7',docs:'https://platform.minimaxi.com/docs'},
+ {id:'qianfan',name:'百度千帆 · 文心',group:'国内服务商',baseURL:'https://qianfan.baidubce.com/v2',model:'',docs:'https://cloud.baidu.com/doc/qianfan-api/index.html'},
+ {id:'hunyuan',name:'腾讯混元',group:'国内服务商',baseURL:'https://api.hunyuan.cloud.tencent.com/v1',model:'',docs:'https://cloud.tencent.com/document/product/1729/111007',hint:'适用于已开通的混元服务；新开通服务也可选择腾讯 TokenHub。'},
+ {id:'spark',name:'讯飞星火',group:'国内服务商',baseURL:'https://spark-api-open.xf-yun.com/v1',model:'',docs:'https://www.xfyun.cn/doc/spark/HTTP调用文档.html',hint:'API Key 填写所选模型版本对应的 APIPassword。'},
+ {id:'stepfun',name:'阶跃星辰',group:'国内服务商',baseURL:'https://api.stepfun.com/v1',model:'',docs:'https://platform.stepfun.com/'},
+ {id:'baichuan',name:'百川智能',group:'国内服务商',baseURL:'https://api.baichuan-ai.com/v1',model:'',docs:'https://platform.baichuan-ai.com/docs-v2/api'},
+ {id:'openai',name:'OpenAI',group:'海外服务商',baseURL:'https://api.openai.com/v1',model:'',docs:'https://developers.openai.com/api/reference/chat-completions/overview'},
+ {id:'anthropic',name:'Anthropic · Claude',group:'海外服务商',baseURL:'https://api.anthropic.com/v1',model:'',docs:'https://platform.claude.com/docs/en/api/openai-sdk',hint:'使用 Claude API 的兼容入口及工作区专用 API Key。'},
+ {id:'gemini',name:'Google · Gemini',group:'海外服务商',baseURL:'https://generativelanguage.googleapis.com/v1beta/openai',model:'',docs:'https://ai.google.dev/gemini-api/docs/openai'},
+ {id:'xai',name:'xAI · Grok',group:'海外服务商',baseURL:'https://api.x.ai/v1',model:'',docs:'https://docs.x.ai/docs/api-reference'},
+ {id:'mistral',name:'Mistral AI',group:'海外服务商',baseURL:'https://api.mistral.ai/v1',model:'',docs:'https://docs.mistral.ai/api'},
+ {id:'cohere',name:'Cohere',group:'海外服务商',baseURL:'https://api.cohere.ai/compatibility/v1',model:'',docs:'https://docs.cohere.com/docs/compatibility-api'},
+ {id:'perplexity',name:'Perplexity',group:'海外服务商',baseURL:'https://api.perplexity.ai/orchestrator/v1',model:'',docs:'https://docs.perplexity.ai/getting-started/quickstart',hint:'使用 Orchestrator 兼容入口，请填写该入口支持的模型 ID。'},
+ {id:'azure',name:'Azure OpenAI',group:'聚合与云平台',baseURL:'',model:'',docs:'https://learn.microsoft.com/en-us/azure/foundry/openai/latest',urlPlaceholder:'https://你的资源.openai.azure.com/openai/v1',hint:'接口填写自己的 Azure 资源地址并以 /openai/v1 结尾；模型名称使用部署名称。'},
+ {id:'tokenhub',name:'腾讯 TokenHub',group:'聚合与云平台',baseURL:'https://tokenhub.tencentmaas.com/v1',model:'',docs:'https://cloud.tencent.com/document/product/1823/131208',hint:'请使用与账户开通地域一致的接口地址。'},
+ {id:'siliconflow',name:'硅基流动',group:'聚合与云平台',baseURL:'https://api.siliconflow.cn/v1',model:'',docs:'https://api-docs.siliconflow.cn/docs/userguide/quickstart'},
+ {id:'modelscope',name:'魔搭 ModelScope',group:'聚合与云平台',baseURL:'https://api-inference.modelscope.cn/v1',model:'',docs:'https://modelscope.cn/docs/model-service/API-Inference/intro',hint:'API Key 填写魔搭访问令牌，模型名称使用完整模型 ID。'},
+ {id:'openrouter',name:'OpenRouter',group:'聚合与云平台',baseURL:'https://openrouter.ai/api/v1',model:'',docs:'https://openrouter.ai/docs/quickstart'},
+ {id:'groq',name:'Groq',group:'聚合与云平台',baseURL:'https://api.groq.com/openai/v1',model:'',docs:'https://console.groq.com/docs/api-reference'},
+ {id:'together',name:'Together AI',group:'聚合与云平台',baseURL:'https://api.together.ai/v1',model:'',docs:'https://docs.together.ai/docs/inference/openai-compatibility'},
+ {id:'fireworks',name:'Fireworks AI',group:'聚合与云平台',baseURL:'https://api.fireworks.ai/inference/v1',model:'',docs:'https://docs.fireworks.ai/tools-sdks/openai-compatibility'},
+ {id:'custom',name:'自定义兼容接口',group:'自定义',baseURL:'',model:'',docs:''},
 ];
 export type TextUnit={id:string;text:string;path?:(string|number)[];start?:number;end?:number;protected?:boolean};
 export type SelectionRange={id:string;from:number;to:number};

@@ -83,6 +83,17 @@ final class WriterStore {
                 guard let id = folder["id"], !id.isEmpty, folderIDs.insert(id).inserted,
                       let name = folder["name"], !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, name.count <= 60 else { throw WriterError("文件夹名称或标识无效，原文件已保留。") }
             }
+            let byID = Dictionary(uniqueKeysWithValues: folders.map { ($0["id"]!, $0) })
+            for folder in folders {
+                var seen = Set([folder["id"]!])
+                var current = folder
+                while let parentID = current["parentId"] {
+                    guard let parent = byID[parentID], seen.insert(parentID).inserted else {
+                        throw WriterError("文件夹层级无效：上级缺失或层级循环。原文件已保留。")
+                    }
+                    current = parent
+                }
+            }
         }
         var ids = Set<String>()
         let date = ISO8601DateFormatter(); date.formatOptions = [.withInternetDateTime, .withFractionalSeconds]

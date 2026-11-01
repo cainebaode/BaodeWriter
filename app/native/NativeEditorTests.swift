@@ -1,17 +1,177 @@
 import Foundation
 
 enum NativeEditorTests {
-    static func seed(_ store: WriterStore) throws {
+    static func seed(_ store: WriterStore, library: Bool = false) throws {
         let blocks: [[String: Any]] = [
             ["id":"p1","type":"paragraph","props":[:],"content":[["type":"text","text":"第一段正文写下我的想法。","styles":[:]]],"children":[]],
             ["id":"p2","type":"paragraph","props":[:],"content":[["type":"text","text":"第二段正文保持独立。","styles":["bold":true]]],"children":[]]
         ]
-        let content = String(data: try JSONSerialization.data(withJSONObject: blocks), encoding: .utf8)!
+        func numbered(_ depth: Int) -> [String: Any] { ["id":"level-\(depth)", "type":"numberedListItem", "props":[:], "content":[["type":"text", "text":"第 \(depth) 层编号", "styles":[:]]], "children":depth < 5 ? [numbered(depth + 1)] : []] }
+        let content = String(data: try JSONSerialization.data(withJSONObject: library ? [numbered(1)] : blocks), encoding: .utf8)!
         func note(_ id: String, _ title: String, _ content: String, _ type: String) -> [String: Any] {
             ["id":id,"document":["title":title,"content":content,"contentType":type,"slug":"","description":"","tags":[],"coverImage":""],"base":NSNull(),"assets":[:],"createdAt":"2026-10-25T12:00:00.000Z","updatedAt":"2026-10-25T12:00:00.000Z","displayDate":"2026-10-25T12:00:00.000Z"]
         }
-        _ = try store.save(["schema":1,"notes":[note("fixture-block","富文本验证",content,"blocknote"),note("fixture-md","Markdown 验证","前面的内容。\n\n需要润色的段落。\n\n后面的内容。","markdown")]])
+        var notes = [note("fixture-block","富文本验证",content,"blocknote"),note("fixture-md","Markdown 验证",library ? "1. 第一层\n   1. 第二层\n      1. 第三层\n         1. 第四层\n            1. 第五层" : "前面的内容。\n\n需要润色的段落。\n\n后面的内容。","markdown")]
+        if library { var trash = note("fixture-trashed","回收站样本","已删除内容","markdown"); trash["trashedAt"] = "2026-10-30T12:00:00.000Z"; notes.append(trash) }
+        _ = try store.save(["schema":1,"notes":notes])
     }
+
+    static let aiConfigurationsScript = #"""
+    // Keep test popovers deterministic when the test window is in the background.
+    const matchMedia=window.matchMedia.bind(window);
+    window.matchMedia=query=>{const result=matchMedia(query);if(query.includes('prefers-reduced-motion'))Object.defineProperty(result,'matches',{value:true});return result;};
+    const bridge=args=>window.webkit.messageHandlers.native.postMessage(args);
+    const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+    const checks=[];
+    const encode=value=>JSON.stringify(value,(_key,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v);
+    const assert=(value,label)=>{if(!value)throw new Error(label+'; passed: '+checks.join(', '));checks.push(label);};
+    const wait=async(fn,label)=>{for(let i=0;i<100;i++){const result=fn();if(result)return result;await pause(70);}throw new Error('Timeout: '+label+'; passed: '+checks.join(', '));};
+    const button=(label,root=document)=>Array.from(root.querySelectorAll('button')).find(b=>(b.textContent.trim()===label||b.getAttribute('aria-label')===label)&&!b.disabled&&!b.closest('[inert]')&&b.getClientRects().length);
+    const click=async(label,root=document)=>{(await wait(()=>button(label,root),label)).click();await pause(150);};
+    const setValue=(el,value)=>{const proto=el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:el.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(el,value);el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}));};
+    const fill=async(el,value)=>{setValue(el,value);await pause(70);};
+    const dialog=()=>document.querySelector('.modal-presence:not([inert]) .ai-settings');
+    const panel=()=>document.querySelector('.ai-panel');
+    const picker=()=>panel().querySelector('[aria-label="AI 配置"]');
+    const composer=()=>panel().querySelector('[aria-label="AI 写作要求"]');
+    const settings=()=>bridge({action:'aiLoad'});
+    const calls=async()=>(await bridge({action:'request',path:'/api/desktop/posts/fixture-ai-configurations',method:'GET'})).data.calls;
+    const library=async()=>{await window.flushAll();return (await bridge({action:'load'})).library;};
+    const configuration=async(name,route,model)=>{const inputs=dialog().querySelectorAll('fieldset input');await fill(inputs[0],name);await fill(inputs[1],site+'/ai/configuration-'+route);await fill(inputs[2],model);await fill(inputs[3],'isolated-configuration-key-'+route);};
+    const saved=()=>wait(()=>!dialog().querySelector('fieldset').disabled&&dialog().querySelector('.ai-status'),'configuration saved');
+    const choose=async id=>{setValue(picker(),id);await wait(()=>picker().value===id&&!picker().disabled,'configuration selected');};
+    const reply=()=>Array.from(panel().querySelectorAll('.ai-message.assistant')).at(-1);
+    const generate=async(text,route)=>{await fill(composer(),text);await click('发送',panel());await wait(()=>!panel().querySelector('.ai-generating')&&reply()?.textContent.includes('已由配置 '+route),'reply '+route);};
+    await wait(()=>document.querySelector('.bn-editor')?.textContent.includes('第二段正文'),'editor ready');await pause(150);const original=encode((await library()).notes.map(n=>n.document));
+    window.dispatchEvent(new CustomEvent('writer-chrome',{detail:{action:'openAI'}}));await pause(220);await wait(()=>picker(),'visible configuration picker');
+    assert(picker().disabled&&picker().options[0].textContent==='尚未配置','empty assistant exposes an add-configuration entry');
+    await click('管理 AI 配置');await wait(()=>dialog()&&!dialog().querySelector('fieldset').disabled,'settings loaded');
+    await configuration('日常写作（测试）','a','fixture-writing');await click('保存并测试连接',dialog());await wait(()=>dialog().textContent.includes('连接成功')&&!dialog().querySelector('fieldset').disabled,'connection tested');
+    const first=(await settings()).configurations[0];assert(!!first&&first.name==='日常写作（测试）','first named configuration saves and connects through its own endpoint');
+    await click('＋ 新增配置',dialog());await configuration('长文推敲（测试）','b','fixture-rewrite');await click('保存',dialog());await saved();
+    let value=await settings();const second=value.configurations.find(c=>c.id!==first.id);
+    assert(value.configurations.length===2&&first.id!==second.id&&first.provider===second.provider,'two configurations for the same provider keep independent identities');
+    assert(!JSON.stringify(value).includes('isolated-configuration-key'),'configuration loading never returns saved keys');
+    assert(dialog().querySelectorAll('.ai-config-list small').length===2,'configuration cards show each saved model');
+    await click('关闭设置');await wait(()=>!dialog()&&picker().options.length===2,'two quick choices');
+    assert(picker().value===first.id&&Array.from(picker().options).every(o=>o.textContent.includes('fixture-')),'assistant shows the saved current configuration and model names');
+    panel().querySelector('.ai-brief summary').click();await wait(()=>panel().querySelector('[aria-label="本篇写作约定"]'),'brief visible');await fill(panel().querySelector('[aria-label="本篇写作约定"]'),'保持中文，语气自然。');
+    await fill(composer(),'先保留这段输入，切换配置后继续。');const draft=composer().value,callCount=(await calls()).length;
+    await choose(second.id);assert(composer().value===draft&&panel().querySelector('[aria-label="本篇写作约定"]').value==='保持中文，语气自然。','switching preserves the composer and writing brief');
+    assert((await settings()).defaultID===second.id&&(await calls()).length===callCount,'switching persists the choice without sending content to AI');
+    await choose(first.id);await generate('先讨论文章主线。','A');
+    assert(reply().querySelector('.ai-message-model').textContent==='日常写作（测试） · fixture-writing','assistant records which configuration and model produced its reply');
+    let history=panel().querySelectorAll('.ai-message').length;await fill(composer(),'再从另一个配置的角度看。');
+    const beforeSwitch=(await calls()).length;setValue(picker(),second.id);panel().querySelector('[aria-label="发送"]').click();await wait(()=>picker().value===second.id&&!picker().disabled,'second current');
+    assert((await calls()).length===beforeSwitch&&panel().querySelectorAll('.ai-message').length===history,'sending during a configuration change cannot use the previous service');
+    assert(composer().value==='再从另一个配置的角度看。','quick switching retains an unsent prompt');await click('发送',panel());await wait(()=>!panel().querySelector('.ai-generating')&&reply()?.textContent.includes('已由配置 B'),'reply B');
+    const routed=await calls();assert(routed.at(-1).route==='b'&&routed.at(-1).model==='fixture-rewrite','the second configuration uses its own endpoint, model and key');
+    assert(routed.at(-1).messageCount>routed.at(-2).messageCount&&panel().querySelectorAll('.ai-message').length===history+2,'conversation history continues across different configurations');
+    assert(panel().querySelectorAll('.ai-message-model')[0].textContent.includes('fixture-writing')&&reply().querySelector('.ai-message-model').textContent.includes('fixture-rewrite'),'earlier replies retain their original model labels');
+    await fill(composer(),'等待切换验证');await click('发送',panel());await wait(()=>panel().querySelector('.ai-generating'),'generation running');
+    assert(picker().disabled&&panel().querySelector('[aria-label="管理 AI 配置"]').disabled,'configuration changes are unavailable while generating');
+    await click('停止生成',panel());await wait(()=>!picker().disabled,'generation stopped');await choose(first.id);await generate('停止后，用当前配置继续。','A');
+    const afterStop=panel().querySelectorAll('.ai-message.assistant').length;await pause(2200);assert(panel().querySelectorAll('.ai-message.assistant').length===afterStop&&reply().textContent.includes('fixture-writing'),'stopping allows switching and ignores the old delayed reply');
+    await click('收起 AI 助手');window.dispatchEvent(new CustomEvent('writer-chrome',{detail:{action:'openAI'}}));await pause(220);assert(picker().value===first.id&&(await settings()).defaultID===first.id,'the last selected configuration remains after reopening the assistant');
+    await click('管理 AI 配置');await wait(()=>dialog()&&!dialog().querySelector('fieldset').disabled,'edit settings');
+    await click('编辑配置 长文推敲（测试） · fixture-rewrite',dialog());await fill(dialog().querySelector('fieldset select'),'custom');
+    let inputs=dialog().querySelectorAll('fieldset input');await fill(inputs[1],site+'/ai/configuration-a');await fill(inputs[2],'fixture-rewrite');await click('保存',dialog());await saved();
+    assert(dialog().textContent.includes('请填写 API Key')&&(await settings()).configurations.find(c=>c.id===second.id)?.baseURL===site+'/ai/configuration-b','changing an endpoint requires a new key and preserves the saved configuration on failure');
+    await fill(inputs[1],site+'/ai/configuration-b');await click('保存',dialog());await saved();value=await settings();
+    assert(value.configurations.length===2&&value.configurations.find(c=>c.id===second.id)?.provider==='custom','changing the provider edits the existing configuration instead of adding a duplicate');
+    assert(value.configurations.find(c=>c.id===second.id)?.name==='长文推敲（测试）','changing the provider preserves a custom configuration name');
+    await click('保存并使用',dialog());await saved();assert((await settings()).defaultID===second.id,'settings can save and select a configuration together');await click('关闭设置');await wait(()=>!dialog()&&picker().value===second.id,'assistant refreshes current');
+    await generate('仍然使用这套配置的密钥。','B');assert(reply().textContent.includes('fixture-rewrite'),'editing the provider at the same endpoint retains that configuration key');
+    await click('管理 AI 配置');await wait(()=>dialog()&&!dialog().querySelector('fieldset').disabled,'remove settings');await click('编辑配置 长文推敲（测试） · fixture-rewrite',dialog());
+    const confirm=window.confirm;window.confirm=()=>true;try{await click('移除',dialog());}finally{window.confirm=confirm;}
+    await wait(()=>dialog().querySelectorAll('.ai-config-list button[aria-label]').length===1&&!dialog().querySelector('fieldset').disabled,'active configuration removed');value=await settings();assert(value.defaultID===first.id&&value.configurations.length===1,'removing the current configuration falls back to the remaining one');
+    await click('关闭设置');await wait(()=>!dialog()&&picker().value===first.id&&picker().options.length===1,'picker refreshes removal');await generate('移除另一套后继续讨论。','A');assert(reply().textContent.includes('fixture-writing'),'the remaining configuration and key continue to work');
+    assert(encode((await library()).notes.map(n=>n.document))===original,'configuration management and switching never modify document content');
+    await click('管理 AI 配置');await wait(()=>dialog()&&!dialog().querySelector('fieldset').disabled,'restore visual sample');await click('＋ 新增配置',dialog());await configuration('长文推敲（测试）','b','fixture-rewrite');await click('保存',dialog());await saved();
+    await click('关闭设置');await wait(()=>!dialog()&&picker().options.length===2,'visual picker ready');await fill(composer(),'换一套配置，继续讨论这篇文章。');
+    await click('管理 AI 配置');await wait(()=>dialog()&&dialog().querySelectorAll('.ai-config-list small').length===2&&!dialog().querySelector('fieldset').disabled,'final settings');await click('编辑配置 日常写作（测试） · fixture-writing',dialog());await pause(150);
+    const bounds=dialog().getBoundingClientRect();assert(Array.from(dialog().querySelectorAll('.dialog-actions button')).every(b=>b.getBoundingClientRect().bottom<=bounds.bottom),'save and management actions stay visible while the form scrolls');await window.flushAll();return checks;
+    """#
+
+    static let libraryScript = #"""
+    const bridge=args=>window.webkit.messageHandlers.native.postMessage(args);
+    await bridge({action:'request',path:'/api/desktop/posts',method:'POST',body:{fixtureReset:true}});
+    const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+    const checks=[];
+    const assert=(value,label)=>{if(!value)throw new Error(label+'; passed: '+checks.join(', '));checks.push(label);};
+    const wait=async(fn,label)=>{for(let i=0;i<100;i++){const value=fn();if(value)return value;await pause(60);}throw new Error('Timeout: '+label+'; passed: '+checks.join(', ')+'; editor: '+document.querySelector('.bn-editor')?.outerHTML.slice(0,8000));};
+    const button=(label,root=document)=>Array.from(root.querySelectorAll('button')).find(b=>(b.textContent.trim()===label||(label==='废纸篓'&&b.textContent.trim().startsWith('废纸篓'))||b.getAttribute('aria-label')===label)&&!b.disabled&&!b.closest('[inert]')&&b.getClientRects().length);
+    const click=async(label,root=document)=>{(await wait(()=>button(label,root),label)).click();await pause(180);};
+    const dialog=()=>document.querySelector('.modal-presence:not([inert]) .dialog');
+    const load=async()=>{await window.flushAll();return (await bridge({action:'load'})).library;};
+    const fill=(input,text)=>{Object.getOwnPropertyDescriptor(input instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value').set.call(input,text);input.dispatchEvent(new Event('input',{bubbles:true}));};
+    const select=async(label,value)=>{const input=document.querySelector('[aria-label="'+label+'"]');input.value=value;input.dispatchEvent(new Event('change',{bubbles:true}));await pause(100);};
+    const command=action=>window.dispatchEvent(new CustomEvent('writer-chrome',{detail:{action}}));
+    const openTree=async()=>{if(!button('文稿库菜单'))window.dispatchEvent(new CustomEvent('writer-chrome',{detail:{action:'toggleLibrary'}}));await pause(220);};
+    const openNote=async id=>{await openTree();document.querySelector('[data-tree-target="note:'+id+'"]>.tree-title').click();await pause(220);};
+    const noteMenu=async id=>{await openTree();document.querySelector('[data-tree-target="note:'+id+'"] .tree-actions button:last-child').click();await pause(100);};
+    const folderMenu=async title=>{await openTree();await click('管理文件夹 '+title);};
+    const move=async(id,target)=>{await noteMenu(id);await click('移动到…');await select('目标位置','folder:'+target);await click('确认移动',dialog());await wait(()=>!dialog(),'move complete');};
+    await wait(()=>document.querySelector('.paper'),'editor ready');
+    await wait(()=>document.querySelector('[data-list-number="1.1.1.1.1"]'),'five level rich labels');
+    const rich=document.querySelector('[data-list-number="1.1.1.1.1"]');
+    assert(getComputedStyle(rich,'::before').content.includes('1.1.1.1.1'),'real WebKit renders five-level rich numbering');
+    command('togglePreview');await pause(150);assert(!!document.querySelector('[data-list-number="1.1.1.1.1"]'),'rich preview preserves hierarchical numbering');command('togglePreview');
+    assert(!!document.querySelector('.sidebar-bottom [aria-label="网站同步管理"]'),'overall sync lives in the continuous sidebar');
+    await click('网站同步管理');await wait(()=>document.querySelector('.sync-manager')&&button('检查网站状态'),'rail sync manager');assert(document.querySelector('.sidebar-bottom [aria-label="网站同步管理"]').getAttribute('aria-pressed')==='true','sync rail entry reflects the active manager');await click('关闭',dialog());await wait(()=>!dialog(),'manager closed');
+    await openTree();if(button('固定文稿栏'))await click('固定文稿栏');
+    assert(!document.querySelector('[data-tree-target="note:fixture-trashed"]'),'preexisting trash is absent from document list');
+    await openNote('fixture-md');command('togglePreview');await pause(200);
+    assert(!!document.querySelector('.markdown [data-list-number="1.1.1.1.1"]'),'Markdown preview renders five-level numbering');command('togglePreview');
+    await click('文稿库菜单');await click('新建文件夹');fill(dialog().querySelector('input'),'写作项目');await click('保存文件夹');await wait(()=>!dialog(),'root folder saved');
+    const parent=(await load()).folders.find(f=>f.name==='写作项目');assert(!!parent,'root folder created from library menu');
+    await folderMenu('写作项目');await click('新建子文件夹');assert(document.querySelector('[aria-label="上级文件夹"]').value===parent.id,'child folder defaults to the chosen parent');fill(dialog().querySelector('input'),'第一章');await click('保存文件夹');await wait(()=>!dialog(),'child folder saved');
+    const child=(await load()).folders.find(f=>f.name==='第一章');assert(child.parentId===parent.id,'child folder persists its parent');
+    assert(document.querySelector('[data-tree-target="folder:'+child.id+'"]').parentElement.parentElement.closest('[role="treeitem"]').getAttribute('aria-label')==='写作项目','child folder appears inside its parent');
+    await folderMenu('第一章');await click('管理文件夹…');assert(!Array.from(document.querySelector('[aria-label="上级文件夹"]').options).some(o=>o.value===child.id),'folder cannot be selected as its own parent');await click('关闭',dialog());
+    await move('fixture-block',child.id);await move('fixture-md',child.id);
+    assert((await load()).notes.filter(n=>!n.trashedAt).every(n=>n.folderId===child.id),'moving files into a nested folder preserves both documents');
+    const folderRow=document.querySelector('[data-tree-target="folder:'+child.id+'"]'),fileRow=document.querySelector('[data-tree-target="note:fixture-md"]');
+    assert(fileRow.querySelector('.tree-title').getBoundingClientRect().left>folderRow.querySelector('.tree-title').getBoundingClientRect().left,'file rows indent below their containing folder');
+    assert(getComputedStyle(fileRow.parentElement,'::before').content==='none','nested nodes use indentation without visual guide lines');
+    assert(document.querySelector('.editor-breadcrumb')?.textContent.includes('写作项目 / 第一章'),'the current paper displays its folder path');
+    await folderMenu('写作项目');await click('管理此文件夹同步…');await wait(()=>button('检查网站状态'),'website status check complete');
+    assert(document.querySelector('[aria-label="同步管理范围"]').value==='folder:'+parent.id&&document.querySelectorAll('.sync-row').length===2,'parent folder sync includes child-folder files and excludes trash');
+    await click('同步范围内待上传 2 篇…');assert(dialog().getAttribute('aria-label')==='同步到网站'&&dialog().querySelectorAll('li').length===2,'batch sync shows both files in an explicit confirmation');
+    assert((await bridge({action:'request',path:'/api/desktop/posts',method:'GET'})).data.posts.length===0,'no document is uploaded before confirmation');
+    await click('关闭',dialog());await wait(()=>document.querySelector('.sync-manager'),'cancel returns to sync management');
+    await click('同步范围内待上传 2 篇…');await click('确认同步 2 篇');await wait(()=>document.querySelector('.sync-manager')&&button('检查网站状态'),'batch completion');
+    assert(Array.from(document.querySelectorAll('.sync-row')).some(row=>row.textContent.includes('同步失败')),'failed file remains visible with a retry status');
+    assert((await load()).notes.find(n=>n.id==='fixture-block').base?.status==='PUBLISHED','successful file retains its publication baseline');
+    const failed=Array.from(document.querySelectorAll('.sync-row')).find(row=>row.textContent.includes('同步失败'));await click('重试…',failed);await click('确认同步 1 篇');await wait(()=>document.querySelector('.sync-manager')&&button('检查网站状态'),'retry completion');
+    assert(Array.from(document.querySelectorAll('.sync-row')).every(row=>row.textContent.includes('已同步')),'retry updates the failed file and clears its error');
+    const published=(await load()).notes.find(n=>n.id==='fixture-md');
+    await bridge({action:'request',path:'/api/desktop/posts',method:'POST',body:{id:published.id,baseVersion:published.base.version,document:{...published.base.document,title:'网站改过的标题'},displayDate:published.displayDate}});
+    await click('检查网站状态');await wait(()=>button('检查网站状态'),'remote refresh');
+    const changed=Array.from(document.querySelectorAll('.sync-row')).find(row=>row.textContent.includes('Markdown 验证'));
+    assert(changed.textContent.includes('网站有变化'),'checking detects a newer website version');
+    await click('处理版本…',changed);assert(dialog().getAttribute('aria-label')==='两个版本，都先留住'&&dialog().textContent.includes('网站改过的标题'),'file-level version action opens both versions');
+    await click('保留本机版，稍后同步');await wait(()=>!dialog(),'local choice saved');
+    assert((await load()).notes.some(n=>n.document.title==='网站改过的标题 · 网站保留版'),'version resolution saves the website copy before retaining local text');
+    await noteMenu('fixture-block');await click('移到废纸篓');await click('移到废纸篓',dialog());await wait(()=>!dialog(),'trash saved');
+    assert(!document.querySelector('[data-tree-target="note:fixture-block"]')&&!document.querySelector('[aria-controls="document-fixture-block"]'),'trash removes document row and its open tab');
+    await click('网站同步管理');await wait(()=>document.querySelector('.sync-manager')&&button('检查网站状态'),'sync manager after trash');assert(!Array.from(document.querySelectorAll('.sync-note-title')).some(el=>el.textContent==='富文本验证'),'trashed file is absent from overall sync management');
+    await click('读取网站文章…');await wait(()=>dialog()?.getAttribute('aria-label')==='从网站读取','website import');assert(!dialog().textContent.includes('富文本验证'),'trashed website file is absent from import selection');await click('关闭',dialog());
+    await click('应用设置');await click('数据与恢复');await click('废纸篓');const row=Array.from(document.querySelectorAll('.trash-row')).find(row=>row.querySelector('strong').textContent==='富文本验证');assert(!!row,'trashed document remains recoverable');await click('恢复',row);await wait(()=>!dialog(),'restore completed');
+    const restored=(await load()).notes.find(n=>n.id==='fixture-block');assert(!restored.trashedAt&&restored.folderId===child.id&&restored.base?.status==='PUBLISHED','restore preserves folder and website association');
+    await wait(()=>document.querySelector('[data-list-number="1.1.1.1.1"]'),'restored rich labels');
+    // Exercise creation from a nested folder without publishing the blank note.
+    await click('在文件夹 第一章 下新建文稿');assert((await load()).notes.some(n=>n.id!==restored.id&&!n.document.title&&n.folderId===child.id),'new document inherits nested folder membership');
+    await folderMenu('第一章');await click('新建子文件夹');fill(dialog().querySelector('input'),'素材');await click('保存文件夹');await wait(()=>!dialog(),'third level saved');
+    const deeper=(await load()).folders.find(f=>f.name==='素材');await move('fixture-md',deeper.id);
+    await click('文稿库菜单');await click('新建文件夹');fill(dialog().querySelector('input'),'个人随笔');await click('保存文件夹');await wait(()=>!dialog(),'sibling root saved');
+    await click('新建文稿');fill(document.querySelector('.document-pane .title'),'阅读摘记');await pause(100);
+    await noteMenu('fixture-block');await click('新建子文稿');fill(document.querySelector('.document-pane .title'),'待补充的例子');await pause(100);
+    await openNote('fixture-md');assert(document.querySelector('.editor-breadcrumb')?.textContent.includes('写作项目 / 第一章 / 素材'),'the complete location remains clear through three folder levels');
+    assert(!!document.querySelector('.tree-root-label')&&document.querySelector('.tree-root-label').textContent==='未分类','root documents are separated from the preceding folder branch');
+    await openNote('fixture-block');await click('网站同步管理');await wait(()=>document.querySelector('.sync-manager')&&button('检查网站状态'),'final manager');await window.flushAll();
+    return checks;
+    """#
 
     static let trashScript = #"""
     const bridge=args=>window.webkit.messageHandlers.native.postMessage(args);

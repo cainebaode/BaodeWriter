@@ -6,7 +6,7 @@ macOS 13+，AppKit + 系统 WebKit。无 Electron、远程页面桥接、网站�
 
 ## 窗口与顶部工具栏
 
-使用 AppKit unifiedCompact 工具栏；标准红黄绿与右侧搜索、专注按钮在同一行，顶部内容间距为 4 点。使用无系统玻璃背景的自绘按钮与无边框原生搜索字段；点击搜索／⌘F 向左展开，Esc 收起，保留原生中文输入与清空行为。搜索和菜单操作通过本机页面的 writer-chrome 事件交给 React；windowState 只同步搜索、就绪与专注等窗口状态，不写文稿或发布。
+使用 AppKit unified 工具栏，标准红黄绿、文稿栏切换、居中搜索、专注与写作助手共享一行。搜索按钮与 ⌘F / ⌘K 打开同一 React 搜索面板；⌘, 打开分类设置。按钮通过 writer-chrome 事件交给 React，windowState 同步窗口外观与就绪状态，不写文稿或发布。系统外观模式使用原生自动外观，WebKit 随系统偏好响应。
 
 ## 前端契约
 
@@ -62,7 +62,7 @@ AI 使用独立临时网络会话，不携带网站 cookie 或 Origin，不接�
 bash scripts/build-native.sh
 ```
 
-生成 `dist/饱得写作.app` 和 `dist/BaodeWriter-0.8.1-universal.dmg`，含 arm64 / x86_64，两份许可证总览与逐依赖许可文件。采用 ad-hoc 签名；没有 Developer ID 签名或 Apple 公证。脚本不会安装或提交公证。
+生成 `dist/饱得写作.app` 和 `dist/BaodeWriter-0.9.0-universal.dmg`，含 arm64 / x86_64，两份许可证总览与逐依赖许可文件。采用 ad-hoc 签名；没有 Developer ID 签名或 Apple 公证。脚本不会安装或提交公证。
 
 隔离验证参数：
 
@@ -92,3 +92,27 @@ python3 native/NetworkFixture.py
 上述测试使用独立临时文稿库、非持久网站会话；AI 测试仅使用测试专用钥匙串项目。`--self-test-workspace` 检查文稿树父子移动、新建子文稿、层级搜索、删除恢复、标签、双栏编辑、各篇保存和配套面板的对应关系，另生成 1000 点宽窗口截图。`--self-test-trash` 验证空白文稿删除、恢复、取消、彻底删除、批量删除和分栏中删除一篇。正常完成后清理测试数据；失败时保留诊断信息。真实 AI 服务需用户在应用内配置其已开通模型后验证。
 
 文稿树使用可选 `Note.parentId`，旧文稿无需改写。原生保存验证父文稿存在、同一文件夹和无循环；备份恢复保留父子关系。文件夹及父子信息不进入网站发布正文或版本指纹。
+
+## 文稿库与同步管理验证
+
+文件夹使用可选 `Folder.parentId`，旧的单层文件夹无需迁移。原生保存拒绝上级缺失和循环；备份恢复保留层级。正文编号通过编辑器显示扩展计算，不改写正文或网站版本指纹。
+
+新增场景使用独立临时文稿库和本机内存网站，包含子文件夹、五层编号、同步确认、部分失败与重试、网站变化比较、废纸篓过滤及恢复：
+
+```sh
+python3 native/NetworkFixture.py --library
+.build/native/BaodeWriter-arm64 --self-test-library --site http://127.0.0.1:<端口> --web-root /absolute/path/to/BaodeWriter/app/build/web --evidence /existing/evidence/directory/library.png
+```
+
+模拟服务的 `--library` 模式不使用正式登录或数据库，专用于此验证；模拟联调通过不代表正式网站已经验收。
+
+## 多套 AI 配置与快速切换验证
+
+助手沿用 `AISettings.configurations` 和 `defaultID`，快速切换调用已有 `aiDefault`，只持久化当前配置 ID；实际请求仍显式传递 `configurationID`。密钥按配置 ID 独立保存在原有钥匙串命名空间，配置文件与返回给界面的设置均不包含密钥。旧配置无需迁移。
+
+```sh
+python3 native/NetworkFixture.py --library
+.build/native/BaodeWriter-arm64 --self-test-ai-configurations --site http://127.0.0.1:<端口> --web-root /absolute/path/to/BaodeWriter/app/build/web --evidence /existing/evidence/directory/configurations.png
+```
+
+此场景使用临时文稿库及测试专用钥匙串项目，验证同一服务商保存多套配置、两套独立地址／模型／测试密钥的请求路由、切换时保留输入和历史、生成中阻止切换、停止后忽略迟到结果、删除当前配置后的回退，以及配置编辑不生成重复项。更换接口不填写新密钥时，保存会拒绝且保留旧配置。测试结束清理该临时命名空间内的密钥；浮层使用减少动态效果的测试设置，截图不包含密钥。真实服务仍由用户在应用内试用。
