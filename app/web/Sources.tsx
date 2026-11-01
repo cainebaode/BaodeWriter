@@ -5,25 +5,32 @@ import { documentMarkdown } from './markdown';
 import { emptyDocument, type Library, type Note } from './model';
 import { adoptAnnotation, anchorPosition, materialFromSource, sourceParts, sourceVersion, type Annotation, type Material, type ReferenceSnapshot, type Source, type SourceVersion } from './references';
 import { ReadingBlock, ReferenceContext, ReferenceMarkdown, SourceText } from './ReferenceReading';
-import { articleHTML, localizeSourceImages } from './sourceImport';
+import { articleHTML, isWeChatArticleURL, localizeSourceImages, readableArticle } from './sourceImport';
 
 function SourceImport({library,existing,onSave,onClose}:{library:Library;existing?:Source;onSave:(source:Source)=>void;onClose:()=>void}){
  const [title,setTitle]=useState(existing?.title||''),[author,setAuthor]=useState(existing?.author||''),[url,setURL]=useState(existing?.url||''),[content,setContent]=useState(''),[error,setError]=useState(''),[working,setWorking]=useState(false),[preview,setPreview]=useState(false);
  const files=useRef<File[]>([]),original=useRef<Note['document']|undefined>(undefined);
- async function readURL(){setWorking(true);setError('');try{const result=await native<{content:string;mime:string;url:string}>('fetchSource',{url});const article=result.mime==='text/html'||result.mime==='application/xhtml+xml'?articleHTML(result.content,result.url):{title:'',author:'',markdown:result.content};if(!article.markdown.trim())throw new Error('没有提取到正文，请复制文章内容粘贴。');setContent(article.markdown);if(article.title)setTitle(article.title);if(article.author)setAuthor(article.author);setPreview(true);}catch(e){setError(String(e instanceof Error?e.message:e));}finally{setWorking(false);}}
+ async function readURL(inBrowser=false){setWorking(true);setError('');try{
+  type Result={content:string;mime:string;url:string;baseURL?:string;cancelled?:boolean};
+  let result:Result,article:{title:string;author:string;markdown:string};
+  const extract=(value:Result)=>{const article=value.mime==='text/html'||value.mime==='application/xhtml+xml'?readableArticle(value.content,value.baseURL||value.url):{title:'',author:'',markdown:value.content};if(!article.markdown.trim())throw new Error('尚未读到文章正文。');return article;};
+  if(inBrowser||isWeChatArticleURL(url)){result=await native<Result>('browseSource',{url});if(result.cancelled)return;article=extract(result);}
+  else{try{result=await native<Result>('fetchSource',{url});article=extract(result);}catch{result=await native<Result>('browseSource',{url});if(result.cancelled)return;article=extract(result);}}
+  setContent(article.markdown);setTitle(article.title);setAuthor(article.author);setURL(result.url);files.current=[];original.current=undefined;setPreview(true);
+ }catch(e){setError(String(e instanceof Error?e.message:e));}finally{setWorking(false);}}
  async function save(){if(!content.trim()||!title.trim())return;setWorking(true);setError('');try{
   if(url){const parsed=new URL(url);if(parsed.protocol!=='https:'||parsed.username||parsed.password)throw new Error('来源链接请使用不含登录信息的 HTTPS 地址，或留空。');}
-  const localized=await localizeSourceImages(content,files.current),now=new Date().toISOString();
+  const localized=await localizeSourceImages(content,files.current,url),now=new Date().toISOString();
   const version:SourceVersion={id:crypto.randomUUID(),at:now,author:author.trim(),url,document:{...emptyDocument(),title:title.trim(),content:localized.markdown,contentType:'markdown'},originalDocument:original.current,warning:localized.warning};
   const source:Source=existing?{...existing,title:title.trim(),author:author.trim(),url,versions:[...existing.versions,version]}:{id:crypto.randomUUID(),at:now,title:title.trim(),author:author.trim(),url,versions:[version],annotations:[]};
   onSave(source);onClose();
  }catch(e){setError(String(e instanceof Error?e.message:e));}finally{setWorking(false);}}
  return <section className="source-import"><header className="panel-heading"><h2>{existing?'保存资料新版本':'收存参考资料'}</h2><button disabled={working} onClick={onClose}>取消</button></header>
-  <div className="source-import-url"><input aria-label="资料链接" placeholder="网页或公众号链接，也可以留空粘贴正文" value={url} disabled={working} onChange={e=>setURL(e.target.value)}/><button disabled={working||!url} onClick={()=>void readURL()}>{working?'正在读取…':'读取链接'}</button></div>
+  <div className="source-import-url"><input aria-label="资料链接" placeholder="输入网页或公众号链接" value={url} disabled={working} onChange={e=>setURL(e.target.value)}/><button disabled={working||!url} onClick={()=>void readURL()}>{working?'正在读取…':'读取链接'}</button></div>
   <div className="source-import-options"><label className="image-picker">导入 MD 与配图<input type="file" multiple accept=".md,.markdown,.txt,image/png,image/jpeg,image/gif,image/webp" disabled={working} onChange={async e=>{const chosen=Array.from(e.target.files||[]);files.current=chosen;const file=chosen.find(f=>/\.(md|markdown|txt)$/i.test(f.name));if(file){setContent(await file.text());setTitle(file.name.replace(/\.[^.]+$/,''));original.current=undefined;setPreview(false);}}}/></label><select aria-label="从已有文稿收存" disabled={working} value="" onChange={async e=>{const n=library.notes.find(n=>n.id===e.target.value);if(n){original.current=structuredClone(n.document);setContent(await documentMarkdown(n.document));setTitle(n.document.title||'未命名资料');setPreview(true);}}}><option value="">从我的文稿收存…</option>{library.notes.filter(n=>!n.trashedAt).map(n=><option value={n.id} key={n.id}>{n.document.title||'无标题文稿'}</option>)}</select></div>
   <div className="source-import-fields"><label>标题<input aria-label="资料标题" value={title} disabled={working} onChange={e=>setTitle(e.target.value)}/></label><label>作者<input aria-label="资料作者" value={author} disabled={working} onChange={e=>setAuthor(e.target.value)}/></label></div>
-  <div className="source-import-body">{preview?<div className="source-import-preview"><ReferenceMarkdown text={content}/></div>:<textarea aria-label="资料正文" placeholder="在此粘贴文章正文或 Markdown。原文收存后只读，批注单独保存。" value={content} disabled={working} onChange={e=>setContent(e.target.value)} onPaste={e=>{const html=e.clipboardData.getData('text/html');if(html){e.preventDefault();const article=articleHTML(html,url);setContent(article.markdown);}}}/>}</div>
-  {error&&<p className="form-error" role="alert">{error}</p>}<footer className="dialog-actions"><button disabled={working} onClick={()=>setPreview(v=>!v)}>{preview?'编辑收存内容':'预览'}</button><span className="hint">图片会在收存时保存到本机；请检查提取是否完整。</span><button className="primary" disabled={working||!content.trim()||!title.trim()} onClick={()=>void save()}>{working?'正在收存…':existing?'保存新版本':'收存到本机'}</button></footer>
+  <div className="source-import-body">{preview?<div className="source-import-preview"><ReferenceMarkdown text={content}/></div>:<textarea aria-label="资料正文" placeholder="在此粘贴文章正文或 Markdown。原文收存后只读，批注单独保存。" value={content} disabled={working} onChange={e=>setContent(e.target.value)} onPaste={e=>{const html=e.clipboardData.getData('text/html');if(html){e.preventDefault();const article=articleHTML(html,url,false);setContent(article.markdown);}}}/>}</div>
+  {error&&<p className="form-error" role="alert">{error}</p>}<footer className="dialog-actions"><button disabled={working} onClick={()=>setPreview(v=>!v)}>{preview?'编辑收存内容':'预览'}</button>{url&&<button disabled={working} onClick={()=>void readURL(true)}>在应用内打开</button>}<span className="hint">图片会在收存时保存到本机；请检查提取是否完整。</span><button className="primary" disabled={working||!content.trim()||!title.trim()} onClick={()=>void save()}>{working?'正在收存…':existing?'保存新版本':'收存到本机'}</button></footer>
  </section>;
 }
 

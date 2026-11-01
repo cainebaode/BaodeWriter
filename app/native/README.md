@@ -26,6 +26,7 @@ macOS 13+，AppKit + 系统 WebKit。无 Electron、远程页面桥接、网站�
 | login | 无 | 成功 `{ok:true}`；关闭为 `{ok:false,cancelled:true}` |
 | setSite | `{url}`，网站根地址 | `{ok:true,siteURL}` |
 | openURL | `{url}`，HTTP(S) 网页 | `{ok:boolean}` |
+| browseSource | `{url}`，公开 HTTPS 文章 | 当前网页 `{content,mime,url}`；取消 `{cancelled:true}` |
 | exportBackup | 无，原生保存面板 | `{ok:true,path}`，取消 `{ok:false,cancelled:true}` |
 | restoreBackup | 无，原生目录面板与恢复确认 | `{ok:true,path,library,safetyBackup}`，取消同上 |
 
@@ -62,7 +63,7 @@ AI 使用独立临时网络会话，不携带网站 cookie 或 Origin，不接�
 bash scripts/build-native.sh
 ```
 
-生成 `dist/饱得写作.app` 和 `dist/BaodeWriter-0.10.0-universal.dmg`，含 arm64 / x86_64，两份许可证总览与逐依赖许可文件。采用 ad-hoc 签名；没有 Developer ID 签名或 Apple 公证。脚本不会安装或提交公证。
+生成 `dist/饱得写作.app` 和 `dist/BaodeWriter-0.10.1-universal.dmg`，含 arm64 / x86_64，两份许可证总览与逐依赖许可文件。采用 ad-hoc 签名；没有 Developer ID 签名或 Apple 公证。脚本不会安装或提交公证。
 
 隔离验证参数：
 
@@ -121,6 +122,8 @@ python3 native/NetworkFixture.py --library
 
 `Library.sources` 保存只读 Markdown 快照、原始文稿副本及批注；`Note.materials` 保存每篇采用的版本、批注快照和 AI 选择。旧文稿无须迁移。原生保存验证来源、版本和采用关联；恢复备份同时检查资料旧版本和 AI 快照引用的图片。
 
-`fetchSource` 与 `fetchSourceImage` 仅用于作者主动收存公开 HTTPS 资料，使用独立临时会话，不携带网站 cookie、Origin 或 AI 密钥；跨源重定向不会跟随。正文提取失败或不完整时允许粘贴，图片失败保留地址并提示。
+`fetchSource` 与 `fetchSourceImage` 仅用于作者主动收存公开 HTTPS 资料，使用独立临时会话，不携带网站 cookie、Origin 或 AI 密钥；跨源重定向不会跟随。`SourceReader.swift` 的 `browseSource` 提供独立、无写作桥接和本地资源处理器的 WebKit 读取窗；非持久网页会话与网站登录分开，提取在 `.defaultClient` 只读当前主框架 DOM。公众号需要实际标题和正文节点，动态验证结束后轮询提取；取消只完成当前请求一次，保留原表单。图片请求可携带来源 Referer 和读取窗中与图片域名匹配的临时 cookie；失败保留地址并提示。
+
+`--self-test-source-reader` 与本机模拟服务配合，使用临时文稿库验证非文章拒绝、无桥接、同页动态正文、懒加载图片地址、取消及再次读取。仅该自测允许显式本机地址，公开桥接仍只接受公开 HTTPS。模拟测试不能证明真实公众号验证能完成。
 
 新增 `--self-test-references` 沿用本机模拟服务及临时文稿库，检查收存预览、批注保存、段内阅读装饰不改变正文、上下文节点保留、原选区恢复、批注草稿、AI 范围预览和未发送问题，并检查 850 点窗口正文与材料抽屉分别占位。真实文章、提取质量与模型成文效果交由用户试用。

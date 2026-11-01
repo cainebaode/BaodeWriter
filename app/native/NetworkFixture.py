@@ -33,7 +33,9 @@ class Fixture(BaseHTTPRequestHandler):
         return "writer-native-test=fixture" in self.headers.get("Cookie", "")
 
     def do_GET(self):
-        if self.path == "/api/desktop/posts/fixture-ai-configurations":
+        if self.path == "/source-reader":
+            self.send(200, '''<!doctype html><html><head><meta charset="utf-8"><title>验证测试</title></head><body><h2>环境异常</h2><p>完成验证后继续访问</p><button id="fixture-finish" onclick="document.title='模拟公众号文章';document.body.innerHTML='<h1 id=activity-name>模拟公众号文章</h1><span id=js_name>测试作者</span><div id=js_content><p>动态出现的正文</p><img data-src=https://images.example.com/lazy.jpg></div>'">完成模拟验证</button></body></html>'''.encode(), "text/html; charset=utf-8")
+        elif self.path == "/api/desktop/posts/fixture-ai-configurations":
             self.send(200, json.dumps({"calls": AI_CONFIGURATION_CALLS}).encode())
         elif self.path == "/admin/login":
             self.send(200, b"<html><body>Fixture login<script>setTimeout(()=>history.pushState({},'', '/admin'),250)</script></body></html>", "text/html", {"Set-Cookie": "writer-native-test=fixture; Path=/; HttpOnly; SameSite=Lax"})

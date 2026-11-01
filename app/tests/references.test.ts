@@ -84,6 +84,23 @@ test('article import keeps readable headings, links, tables and lazy images with
  assert.equal(sourceParts(source().versions[0]).filter(p=>p.text==='相同的一句话。').length,2);
 });
 
+test('WeChat verification and unavailable pages cannot be imported as articles',()=>{
+ const url='https://mp.weixin.qq.com/s/example';
+ assert.throws(()=>articleHTML('<html><body><h2>环境异常</h2><p>当前环境异常，完成验证后即可继续访问。</p><a href="/verify">去验证</a></body></html>',url),/尚未读到公众号正文/);
+ assert.throws(()=>articleHTML('<title>微信公众平台</title><p>该内容已被发布者删除</p>',url),/尚未读到公众号正文/);
+ assert.throws(()=>articleHTML('<h1 id="activity-name">文章标题</h1><div id="js_content"></div>',url),/尚未读到公众号正文/);
+ const article=articleHTML('<h1 id="activity-name">环境异常如何影响阅读</h1><div id="js_name">作者甲</div><div id="js_content"><p>正常文章可以讨论环境异常与去验证。</p><section><img data-src="https://cdn.example.com/picture.jpg"></section></div>',url);
+ assert.equal(article.title,'环境异常如何影响阅读');assert.equal(article.author,'作者甲');assert(article.markdown.includes('正常文章'));assert(article.markdown.includes('picture.jpg'));
+ assert.equal(articleHTML('<p>手动粘贴的选段仍可读取。</p>',url,false).markdown,'手动粘贴的选段仍可读取。');
+});
+
+test('nested and empty article emphasis remains readable without extra Markdown markers',()=>{
+ const result=articleHTML('<article><p>作者：甲<strong><br></strong></p><p><strong> 联合<strong>甲</strong></strong><strong>、乙 </strong></p><p><strong><p>第一段。</p><p>第二段。</p></strong></p><p>字面 * 星号与 <code>a*b</code>。</p></article>','https://example.com/article');
+ assert(!result.markdown.includes('****'));assert(result.markdown.includes('**联合甲**'));assert(!result.markdown.includes('**\n**'));assert(result.markdown.includes('字面 \\* 星号'));assert(result.markdown.includes('`a*b`'));
+ const punctuation=articleHTML('<p><strong>完整句子。</strong>下一句。前文<strong>“重点”</strong>结束。</p>','https://example.com/article');
+ const rendered=sourceParts({id:'v',at:'now',document:{...emptyDocument(),contentType:'markdown',content:punctuation.markdown}}).map(p=>p.text).join('');assert(!rendered.includes('**'));assert(rendered.includes('完整句子。'));assert(rendered.includes('“重点”'));
+});
+
 test('AI references to a neighbouring paragraph preserve the actual cited position and the annotation subject',()=>{
  const s=source(),m=adoptAnnotation(s,s.annotations[0]),snapshot=materialSnapshot({...m,aiScope:'full'},[s])!;
  const derived=citedSnapshot(snapshot,['p4']);assert.equal(derived.quote,'不会附带的远处材料。');assert.equal(derived.annotationQuote,m.quote);assert.equal(citedSnapshot({...snapshot,allParts:[]},['p4']).quote,derived.quote);

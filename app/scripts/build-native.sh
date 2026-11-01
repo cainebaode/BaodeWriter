@@ -11,7 +11,7 @@ APP_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$
 SDK="$(xcrun --sdk macosx --show-sdk-path)"
 
 mkdir -p "$BUILD_DIR" "$OUTPUT_DIR"
-SOURCES=("$WRITER_DIR/native/App.swift" "$WRITER_DIR/native/Store.swift" "$WRITER_DIR/native/AIService.swift" "$WRITER_DIR/native/NativeTests.swift" "$WRITER_DIR/native/NativeEditorTests.swift")
+SOURCES=("$WRITER_DIR/native/App.swift" "$WRITER_DIR/native/SourceReader.swift" "$WRITER_DIR/native/Store.swift" "$WRITER_DIR/native/AIService.swift" "$WRITER_DIR/native/NativeTests.swift" "$WRITER_DIR/native/NativeEditorTests.swift" "$WRITER_DIR/native/SourceReaderTests.swift")
 xcrun swiftc -swift-version 5 -O -parse-as-library -module-cache-path "$BUILD_DIR/ModuleCache" -sdk "$SDK" -target arm64-apple-macos13.0 -framework AppKit -framework WebKit -framework CryptoKit -framework Security "${SOURCES[@]}" -o "$BUILD_DIR/BaodeWriter-arm64"
 "$BUILD_DIR/BaodeWriter-arm64" --self-test
 xcrun swiftc -swift-version 5 -O -parse-as-library -module-cache-path "$BUILD_DIR/ModuleCache" -sdk "$SDK" -target x86_64-apple-macos13.0 -framework AppKit -framework WebKit -framework CryptoKit -framework Security "${SOURCES[@]}" -o "$BUILD_DIR/BaodeWriter-x86_64"
